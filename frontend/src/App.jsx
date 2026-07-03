@@ -307,63 +307,71 @@ export default function App() {
     <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex flex-col font-sans">
       
       {/* HEADER */}
-      <header className="border-b border-[#23354E] bg-[#161F30]/60 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="bg-[#3B82F6] p-2 rounded-xl text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-            <Zap className="h-6 w-6 animate-pulse" />
+      <header className="border-b border-[#23354E] bg-[#161F30]/60 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="flex items-center justify-between w-full md:w-auto">
+          <div className="flex items-center space-x-3">
+            <div className="bg-[#3B82F6] p-2 rounded-xl text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+              <Zap className="h-6 w-6 animate-pulse" />
+            </div>
+            <div>
+              <h1 className="text-lg md:text-xl font-bold tracking-tight text-white">SmartOffice</h1>
+              <p className="text-[10px] text-gray-400 hidden sm:block">Power & Device Monitoring Control Room</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-white">SmartOffice</h1>
-            <p className="text-xs text-gray-400">Power & Device Monitoring Control Room</p>
+          {/* Mobile connection status */}
+          <div className="flex items-center space-x-2 md:hidden">
+            <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse-glow shadow-[0_0_8px_#10b981]' : 'bg-red-500'}`}></span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-300">
+              {connected ? 'Live Sync' : 'Offline'}
+            </span>
           </div>
         </div>
 
         {/* CONNECTION STATUS & TIME */}
-        <div className="flex items-center space-x-3 md:space-x-4">
+        <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 md:gap-3 w-full md:w-auto">
           {/* Settings Button */}
           <button 
             onClick={() => setShowSettingsModal(true)}
-            className="flex items-center space-x-1.5 bg-[#23354E]/40 hover:bg-[#23354E]/80 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg border border-[#23354E]/60 text-xs font-semibold transition-all"
+            className="flex items-center space-x-1.5 bg-[#23354E]/40 hover:bg-[#23354E]/80 text-gray-300 hover:text-white px-2.5 py-1.5 rounded-lg border border-[#23354E]/60 text-xs font-semibold transition-all"
             title="Open Control Settings"
           >
             <Settings className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Settings</span>
+            <span>Settings</span>
           </button>
 
           {/* Logout Button */}
           <button 
             onClick={handleLogout}
-            className="flex items-center space-x-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg border border-red-500/20 text-xs font-semibold transition-all"
+            className="flex items-center space-x-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-2.5 py-1.5 rounded-lg border border-red-500/20 text-xs font-semibold transition-all"
             title="Log Out of Dashboard"
           >
             <XCircle className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Log Out</span>
+            <span>Log Out</span>
           </button>
 
           <a 
             href="https://discord.gg/euFt99ETT" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center space-x-1.5 bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-[#0088cc] px-3 py-1.5 rounded-lg border border-[#0088cc]/30 text-xs font-semibold transition-all shadow-[0_0_10px_rgba(0,136,204,0.1)] hover:shadow-[0_0_15px_rgba(0,136,204,0.2)]"
+            className="flex items-center space-x-1.5 bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-[#0088cc] px-2.5 py-1.5 rounded-lg border border-[#0088cc]/30 text-xs font-semibold transition-all shadow-[0_0_10px_rgba(0,136,204,0.1)] hover:shadow-[0_0_15px_rgba(0,136,204,0.2)]"
           >
             <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1 .22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .24z"/>
             </svg>
-            <span className="hidden sm:inline">Telegram Channel</span>
-            <span className="sm:hidden">Telegram</span>
+            <span>Telegram</span>
           </a>
 
-          <div className="flex items-center space-x-2 bg-[#23354E]/40 px-3 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
+          <div className="flex items-center space-x-2 bg-[#23354E]/40 px-2.5 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
             <Clock className="h-3.5 w-3.5 text-[#3B82F6] animate-pulse" />
             <span className="font-semibold text-white tracking-wider">{time}</span>
           </div>
 
-          <div className="flex items-center space-x-2 bg-[#23354E]/40 px-3 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
+          <div className="flex items-center space-x-2 bg-[#23354E]/40 px-2.5 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
             <Clock className="h-3.5 w-3.5 text-gray-400" />
-            <span>Office Hours: {settings.officeStartTime} - {settings.officeEndTime}</span>
+            <span>Hours: {settings.officeStartTime}-{settings.officeEndTime}</span>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="hidden md:flex items-center space-x-2">
             <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse-glow shadow-[0_0_8px_#10b981]' : 'bg-red-500'}`}></span>
             <span className="text-xs font-semibold uppercase tracking-wider text-gray-300">
               {connected ? 'Live Sync' : 'Offline'}
@@ -624,7 +632,7 @@ export default function App() {
               </div>
 
               {/* Room select filters */}
-              <div className="flex bg-[#0B0F19] rounded-lg p-1 border border-[#23354E]">
+              <div className="flex flex-wrap bg-[#0B0F19] rounded-lg p-1 border border-[#23354E] gap-1">
                 {rooms.map(room => (
                   <button 
                     key={room}
