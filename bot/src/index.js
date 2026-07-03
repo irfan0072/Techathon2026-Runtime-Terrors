@@ -28,12 +28,12 @@ async function humanizeResponse(systemContext, rawDataText) {
 
   try {
     const prompt = `You are a helpful, extremely polite, and professional Smart Office monitoring assistant. 
-Explain the following raw data/status to the office manager/boss in a natural, friendly, human conversational tone.
-Be polite and clear. You can write in English or match the language/style of the context (including Bengali or Banglish if the boss asks in that format).
-Keep it concise and tidy.
+Explain the following status details to the office manager/boss in a natural, friendly, human conversational tone.
+Do not reference prompt structures, raw arrays, or template instructions.
+You can write in English, Bengali, or Banglish depending on how you are addressed. Keep it concise, tidy, and accurate.
 
-Context/Query: ${systemContext}
-Raw status details:
+Context: ${systemContext}
+Status Details:
 ${rawDataText}`;
 
     const response = await axios.post(
@@ -230,20 +230,64 @@ client.on("messageCreate", async (message) => {
 
   // If message doesn't start with prefix, output help buttons menu for ease of use
   if (!message.content.startsWith(PREFIX)) {
-    // If the boss sends an random conversational text, we can use Gemini to converse with them back!
+    // If the boss sends a random conversational text, we can use Gemini to converse with them back!
     if (GEMINI_API_KEY) {
       try {
-        const response = await axios.get(`${BACKEND_URL}/api/usage`);
-        const { metrics } = response.data;
-        const ctxPrompt = `The boss just said: "${message.content}". Answer conversational, and display these quick options. Current load: ${metrics.totalPowerNow}W.`;
-        const aiMessage = await humanizeResponse(ctxPrompt, "Feel free to use the shortcut buttons below to fetch reports instantly!");
-        await message.reply({ content: aiMessage, components: getShortcutButtons() });
+        // Fetch all live state
+        const devicesRes = await axios.get(`${BACKEND_URL}/api/devices`);
+        const usageRes = await axios.get(`${BACKEND_URL}/api/usage`);
+        const settingsRes = await axios.get(`${BACKEND_URL}/api/settings`);
+        
+        const devices = devicesRes.data.devices;
+        const metrics = usageRes.data.metrics;
+        const settings = settingsRes.data.settings;
+        
+        const systemStateText = `
+Devices list:
+${devices.map(d => `• [${d.room}] ${d.name}: ${d.status ? "ON" : "OFF"} (${d.powerDraw}W)`).join("\n")}
+Total current load: ${metrics.totalPowerNow}W
+Daily usage estimation: ${metrics.estimatedKWh} kWh
+Office Hours range: ${settings.officeStartTime || "09:00"} to ${settings.officeEndTime || "17:00"}
+All Devices ON time limit: ${settings.roomAllOnTimeLimit || "02:00"}
+`;
+
+        const prompt = `You are the Smart Office Monitoring Assistant bot. The office manager/boss just sent this message: "${message.content}".
+Answer their message in a natural, polite, and professional conversational tone, using the live office data provided below.
+Be concise, clear, and extremely accurate. Do not hallucinate devices or features that do not exist in the data.
+You can respond in English, Bengali, or Banglish depending on how the boss addresses you.
+
+Live System Data:
+${systemStateText}
+
+Instructions:
+1. Directly answer the boss's query. If they ask about a specific room (e.g. "room 1", "drawing room", or "room number 1"), look at the devices list for that room and summarize it.
+2. If they speak in Bengali or Banglish (e.g., "room 1 er status ki?"), reply back in friendly Bengali or Banglish.
+3. Be concise, clear, and professional.
+4. Note that they can also click the quick buttons below to get instant structured status reports.`;
+
+        // Send this directly to Gemini!
+        const response = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            contents: [{
+              parts: [{ text: prompt }]
+            }]
+          },
+          { timeout: 8000 }
+        );
+
+        const candidateText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (candidateText) {
+          await message.reply({ content: candidateText.trim(), components: getShortcutButtons() });
+          return;
+        }
       } catch (err) {
-        await message.reply({ content: `🤖 Hello! You can type commands like \`!status\` or simply click the shortcut buttons below:`, components: getShortcutButtons() });
+        console.error("[Bot Conversational] Error:", err.message);
       }
-    } else {
-      await message.reply({ content: `🤖 Hello! You can type commands like \`!status\` or simply click the shortcut buttons below:`, components: getShortcutButtons() });
     }
+    
+    // Fallback if Gemini key is missing or failed
+    await message.reply({ content: `🤖 Hello! You can type commands like \`!status\` or simply click the shortcut buttons below:`, components: getShortcutButtons() });
     return;
   }
 
