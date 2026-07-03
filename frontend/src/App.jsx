@@ -33,8 +33,12 @@ export default function App() {
 
   // Socket setup
   useEffect(() => {
-    // Connect to Backend (port 3001 in development)
-    const socketInstance = io("http://localhost:3001");
+    // Connect to Backend (port 3001 in development, Render URL in production)
+    const backendUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:3001'
+      : 'https://teckathon-backend.onrender.com';
+
+    const socketInstance = io(backendUrl);
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
@@ -72,7 +76,7 @@ export default function App() {
     });
 
     // Fetch initial dummy users list
-    fetch("http://localhost:3001/api/users")
+    fetch(`${backendUrl}/api/users`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {

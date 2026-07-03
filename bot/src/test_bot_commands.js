@@ -1,7 +1,7 @@
 const axios = require("axios");
 const readline = require("readline");
 
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
+const BACKEND_URL = process.env.BACKEND_URL || "https://teckathon-backend.onrender.com";
 const PREFIX = "!";
 
 const rl = readline.createInterface({

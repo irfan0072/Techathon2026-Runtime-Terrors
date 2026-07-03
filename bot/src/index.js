@@ -5,7 +5,7 @@ require("dotenv").config();
 
 // Configuration from environment variables
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "PLACEHOLDER_TOKEN";
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
+const BACKEND_URL = process.env.BACKEND_URL || "https://teckathon-backend.onrender.com";
 const ALERTS_CHANNEL_ID = process.env.ALERTS_CHANNEL_ID || "PLACEHOLDER_CHANNEL_ID";
 const PREFIX = "!";
 
