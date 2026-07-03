@@ -492,15 +492,6 @@ export default function App() {
             </div>
           </section>
 
-          {/* SYSTEM DESCRIPTION */}
-          <section className="glass-panel p-6 border-dashed border-[#23354E] bg-transparent">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Hackathon Architecture Info</h3>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              This React Dashboard integrates directly with an Express backend using Socket.io for live updates. 
-              The floor plan renders simulated room layout configurations. Clicking any device toggles the live 
-              state across all endpoints, acting as a Single Source of Truth.
-            </p>
-          </section>
 
         </div>
 
