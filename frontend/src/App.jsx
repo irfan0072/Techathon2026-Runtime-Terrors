@@ -35,8 +35,8 @@ export default function App() {
 
   // Settings & Timers states
   const [settings, setSettings] = useState({
-    officeStartHour: 9,
-    officeEndHour: 17,
+    officeStartTime: "09:00",
+    officeEndTime: "17:00",
     roomAllOnHourLimit: 2,
     roomTimerEnabled: true,
     discordOnlyDanger: false
@@ -254,7 +254,7 @@ export default function App() {
 
           <div className="flex items-center space-x-2 bg-[#23354E]/40 px-3 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
             <Clock className="h-3.5 w-3.5 text-gray-400" />
-            <span>Office Hours: {settings.officeStartHour.toString().padStart(2, '0')}:00 - {settings.officeEndHour.toString().padStart(2, '0')}:00</span>
+            <span>Office Hours: {settings.officeStartTime} - {settings.officeEndTime}</span>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -675,22 +675,20 @@ export default function App() {
                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Office Hours Schedule</label>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] text-gray-500 block mb-1">Start Hour (24h format)</label>
+                    <label className="text-[10px] text-gray-500 block mb-1">Start Time</label>
                     <input 
-                      type="number" 
-                      min="0" max="23"
-                      defaultValue={settings.officeStartHour}
-                      id="input_officeStartHour"
+                      type="time" 
+                      defaultValue={settings.officeStartTime}
+                      id="input_officeStartTime"
                       className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-gray-500 block mb-1">End Hour (24h format)</label>
+                    <label className="text-[10px] text-gray-500 block mb-1">End Time</label>
                     <input 
-                      type="number" 
-                      min="0" max="23"
-                      defaultValue={settings.officeEndHour}
-                      id="input_officeEndHour"
+                      type="time" 
+                      defaultValue={settings.officeEndTime}
+                      id="input_officeEndTime"
                       className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
                     />
                   </div>
@@ -753,14 +751,14 @@ export default function App() {
               </button>
               <button 
                 onClick={() => {
-                  const officeStartHour = parseInt(document.getElementById("input_officeStartHour").value) || 9;
-                  const officeEndHour = parseInt(document.getElementById("input_officeEndHour").value) || 17;
+                  const officeStartTime = document.getElementById("input_officeStartTime").value || "09:00";
+                  const officeEndTime = document.getElementById("input_officeEndTime").value || "17:00";
                   const roomAllOnHourLimit = parseInt(document.getElementById("input_roomAllOnHourLimit").value) || 2;
                   const roomTimerEnabled = document.getElementById("input_roomTimerEnabled").checked;
                   const discordOnlyDanger = document.getElementById("input_discordOnlyDanger").checked;
                   handleUpdateSettings({
-                    officeStartHour,
-                    officeEndHour,
+                    officeStartTime,
+                    officeEndTime,
                     roomAllOnHourLimit,
                     roomTimerEnabled,
                     discordOnlyDanger

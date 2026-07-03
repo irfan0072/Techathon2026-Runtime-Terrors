@@ -42,9 +42,17 @@ function checkAlerts(io, updatedDevice) {
   const settings = store.getSettings();
   const now = new Date();
   const currentHour = now.getHours();
+  const currentMin = now.getMinutes();
+  const currentTimeVal = currentHour * 60 + currentMin;
+
+  const [startH, startM] = (settings.officeStartTime || "09:00").split(":").map(Number);
+  const startTimeVal = startH * 60 + startM;
+
+  const [endH, endM] = (settings.officeEndTime || "17:00").split(":").map(Number);
+  const endTimeVal = endH * 60 + endM;
   
   // Alert Rule 1: Devices left on after office hours (Office hours from settings)
-  const isAfterHours = currentHour < settings.officeStartHour || currentHour >= settings.officeEndHour;
+  const isAfterHours = currentTimeVal < startTimeVal || currentTimeVal >= endTimeVal;
   if (isAfterHours && updatedDevice.status === true) {
     const admin = store.dummyUsers[0]; // Nafisa Rahman
     const msg = `[After Hours Alert] ${updatedDevice.room} - ${updatedDevice.name} was turned ON at ${now.toLocaleTimeString()}. Dispatching alert to Admin ${admin.name} (${admin.phone}).`;
