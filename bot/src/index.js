@@ -192,3 +192,14 @@ if (DISCORD_TOKEN === "PLACEHOLDER_TOKEN") {
     console.error("[Bot] Login failure:", err.message);
   });
 }
+
+// Render Web Service HTTP port-binding workaround (Free Tier support)
+const http = require("http");
+const PORT = process.env.PORT || 10000;
+http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("SmartOffice Discord Bot is active!");
+}).listen(PORT, () => {
+  console.log(`[Bot] Dummy HTTP health-check listening on port ${PORT}`);
+});
+
