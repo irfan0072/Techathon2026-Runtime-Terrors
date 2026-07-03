@@ -20,6 +20,10 @@ const client = new Client({
 
 // Live listener for proactive alerts using Socket.io-client
 let socket;
+let botSettings = {
+  discordOnlyDanger: false
+};
+
 function connectToBackendSockets() {
   console.log(`[Bot] Connecting to Backend WebSockets at ${BACKEND_URL}...`);
   socket = io(BACKEND_URL);
@@ -28,8 +32,26 @@ function connectToBackendSockets() {
     console.log("[Bot] Socket.io connection established to backend.");
   });
 
+  socket.on("init_state", (data) => {
+    if (data.settings) {
+      botSettings = data.settings;
+      console.log("[Bot] Synchronized initial settings:", botSettings);
+    }
+  });
+
+  socket.on("settings_updated", (newSettings) => {
+    botSettings = newSettings;
+    console.log("[Bot] Synchronized updated settings:", botSettings);
+  });
+
   socket.on("alert_added", async (alert) => {
     console.log(`[Bot] Received active alert from backend: ${alert.message}`);
+    
+    // Check setting: if discordOnlyDanger is enabled, skip warning alerts
+    if (botSettings.discordOnlyDanger && alert.severity !== "danger") {
+      console.log(`[Bot] Skipping alert: Only sending 'danger' severity alerts to Discord (setting is active).`);
+      return;
+    }
     
     // Proactively post alerts to the designated Discord channel
     if (ALERTS_CHANNEL_ID !== "PLACEHOLDER_CHANNEL_ID") {

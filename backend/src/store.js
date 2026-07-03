@@ -106,6 +106,22 @@ const addAlert = (message, severity = "warning") => {
   return alert;
 };
 
+// Settings configuration
+const settings = {
+  officeStartHour: 9,
+  officeEndHour: 17,
+  roomAllOnHourLimit: 2,
+  roomTimerEnabled: true,
+  discordOnlyDanger: false
+};
+
+const getSettings = () => settings;
+
+const updateSettings = (newSettings) => {
+  Object.assign(settings, newSettings);
+  return settings;
+};
+
 module.exports = {
   dummyUsers,
   getDevices,
@@ -116,5 +132,7 @@ module.exports = {
   getEstimatedKWh,
   getAlerts,
   clearAlerts,
-  addAlert
+  addAlert,
+  getSettings,
+  updateSettings
 };

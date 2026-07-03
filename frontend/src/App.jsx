@@ -11,7 +11,8 @@ import {
   MapPin, 
   CheckCircle,
   XCircle,
-  HelpCircle
+  HelpCircle,
+  Settings
 } from 'lucide-react';
 
 export default function App() {
@@ -32,6 +33,27 @@ export default function App() {
   const [selectedRoom, setSelectedRoom] = useState("All");
   const [time, setTime] = useState(new Date().toLocaleTimeString());
 
+  // Settings & Timers states
+  const [settings, setSettings] = useState({
+    officeStartHour: 9,
+    officeEndHour: 17,
+    roomAllOnHourLimit: 2,
+    roomTimerEnabled: true,
+    discordOnlyDanger: false
+  });
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [roomTimers, setRoomTimers] = useState({
+    "Drawing Room": 0,
+    "Work Room 1": 0,
+    "Work Room 2": 0
+  });
+
+  const allOnStartTimes = useRef({
+    "Drawing Room": null,
+    "Work Room 1": null,
+    "Work Room 2": null
+  });
+
   // Live clock setup
   useEffect(() => {
     const timer = setInterval(() => {
@@ -39,6 +61,43 @@ export default function App() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Room All-On timer updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const roomsList = ["Drawing Room", "Work Room 1", "Work Room 2"];
+      const newTimers = { ...roomTimers };
+      let updated = false;
+
+      roomsList.forEach(room => {
+        const roomDevices = devices.filter(d => d.room === room);
+        const allOn = roomDevices.length > 0 && roomDevices.every(d => d.status);
+
+        if (allOn && settings.roomTimerEnabled) {
+          if (!allOnStartTimes.current[room]) {
+            allOnStartTimes.current[room] = Date.now();
+          }
+          const elapsedSecs = Math.floor((Date.now() - allOnStartTimes.current[room]) / 1000);
+          if (newTimers[room] !== elapsedSecs) {
+            newTimers[room] = elapsedSecs;
+            updated = true;
+          }
+        } else {
+          if (allOnStartTimes.current[room] !== null || newTimers[room] !== 0) {
+            allOnStartTimes.current[room] = null;
+            newTimers[room] = 0;
+            updated = true;
+          }
+        }
+      });
+
+      if (updated) {
+        setRoomTimers(newTimers);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [devices, settings.roomTimerEnabled, roomTimers]);
 
   // Socket setup
   useEffect(() => {
@@ -67,6 +126,13 @@ export default function App() {
       setRoomBreakdown(data.roomBreakdown || {});
       setEstimatedKWh(data.estimatedKWh || 4.2);
       setAlerts(data.alerts || []);
+      if (data.settings) {
+        setSettings(data.settings);
+      }
+    });
+
+    socketInstance.on('settings_updated', (updated) => {
+      setSettings(updated);
     });
 
     // Receive incremental update broadcasts
@@ -118,6 +184,21 @@ export default function App() {
     }
   };
 
+  // Handle settings update
+  const handleUpdateSettings = (newSettings) => {
+    if (socket) {
+      socket.emit("update_settings", newSettings);
+    }
+    setShowSettingsModal(false);
+  };
+
+  // Helper to format timers
+  const formatTime = (totalSecs) => {
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const activeDevices = devices.filter(d => d.status);
   const rooms = ["All", "Drawing Room", "Work Room 1", "Work Room 2"];
 
@@ -142,7 +223,17 @@ export default function App() {
         </div>
 
         {/* CONNECTION STATUS & TIME */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3 md:space-x-4">
+          {/* Settings Button */}
+          <button 
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center space-x-1.5 bg-[#23354E]/40 hover:bg-[#23354E]/80 text-gray-300 hover:text-white px-3 py-1.5 rounded-lg border border-[#23354E]/60 text-xs font-semibold transition-all"
+            title="Open Control Settings"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
+
           <a 
             href="https://discord.gg/euFt99ETT" 
             target="_blank" 
@@ -152,7 +243,8 @@ export default function App() {
             <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1 .22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .24z"/>
             </svg>
-            <span>Telegram Channel</span>
+            <span className="hidden sm:inline">Telegram Channel</span>
+            <span className="sm:hidden">Telegram</span>
           </a>
 
           <div className="flex items-center space-x-2 bg-[#23354E]/40 px-3 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
@@ -162,7 +254,7 @@ export default function App() {
 
           <div className="flex items-center space-x-2 bg-[#23354E]/40 px-3 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
             <Clock className="h-3.5 w-3.5 text-gray-400" />
-            <span>Office Hours: 09:00 - 17:00</span>
+            <span>Office Hours: {settings.officeStartHour.toString().padStart(2, '0')}:00 - {settings.officeEndHour.toString().padStart(2, '0')}:00</span>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -257,8 +349,15 @@ export default function App() {
                 
                 {/* DRAWING ROOM */}
                 <div className="border border-[#23354E]/60 bg-[#161F30]/30 rounded-lg p-3 flex flex-col justify-between min-h-[220px]">
-                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2">
-                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Drawing Room</span>
+                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      {roomTimers["Drawing Room"] > 0 && settings.roomTimerEnabled && (
+                        <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-1 py-0.5 rounded animate-pulse font-mono font-bold">
+                          ⏱️ {formatTime(roomTimers["Drawing Room"])}
+                        </span>
+                      )}
+                      <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Drawing Room</span>
+                    </div>
                     <div className="text-[10px] text-blue-400 font-semibold">{roomBreakdown["Drawing Room"] || 0}W draw</div>
                   </div>
                   
@@ -302,8 +401,15 @@ export default function App() {
 
                 {/* WORK ROOM 1 */}
                 <div className="border border-[#23354E]/60 bg-[#161F30]/30 rounded-lg p-3 flex flex-col justify-between min-h-[220px]">
-                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2">
-                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Work Room 1</span>
+                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      {roomTimers["Work Room 1"] > 0 && settings.roomTimerEnabled && (
+                        <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-1 py-0.5 rounded animate-pulse font-mono font-bold">
+                          ⏱️ {formatTime(roomTimers["Work Room 1"])}
+                        </span>
+                      )}
+                      <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Work Room 1</span>
+                    </div>
                     <div className="text-[10px] text-blue-400 font-semibold">{roomBreakdown["Work Room 1"] || 0}W draw</div>
                   </div>
                   
@@ -347,8 +453,15 @@ export default function App() {
 
                 {/* WORK ROOM 2 */}
                 <div className="border border-[#23354E]/60 bg-[#161F30]/30 rounded-lg p-3 flex flex-col justify-between min-h-[220px]">
-                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2">
-                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Work Room 2</span>
+                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      {roomTimers["Work Room 2"] > 0 && settings.roomTimerEnabled && (
+                        <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-1 py-0.5 rounded animate-pulse font-mono font-bold">
+                          ⏱️ {formatTime(roomTimers["Work Room 2"])}
+                        </span>
+                      )}
+                      <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Work Room 2</span>
+                    </div>
                     <div className="text-[10px] text-blue-400 font-semibold">{roomBreakdown["Work Room 2"] || 0}W draw</div>
                   </div>
                   
@@ -537,6 +650,130 @@ export default function App() {
       <footer className="border-t border-[#23354E] bg-slate-950 py-4 text-center text-xs text-gray-500">
         <p>&copy; {new Date().getFullYear()} SmartOffice Monitor. Built for Techathon.</p>
       </footer>
+
+      {/* SETTINGS MODAL */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+          <div className="bg-[#161F30] border border-[#23354E] rounded-2xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-[#23354E]/60 flex justify-between items-center bg-slate-900/50">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Settings className="h-4.5 w-4.5 text-[#3B82F6]" /> Control Settings
+              </h3>
+              <button 
+                onClick={() => setShowSettingsModal(false)}
+                className="text-gray-400 hover:text-white transition-colors text-lg"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-5 text-sm text-gray-300">
+              {/* Rule 1: Office Hours */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Office Hours Schedule</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block mb-1">Start Hour (24h format)</label>
+                    <input 
+                      type="number" 
+                      min="0" max="23"
+                      defaultValue={settings.officeStartHour}
+                      id="input_officeStartHour"
+                      className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block mb-1">End Hour (24h format)</label>
+                    <input 
+                      type="number" 
+                      min="0" max="23"
+                      defaultValue={settings.officeEndHour}
+                      id="input_officeEndHour"
+                      className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Rule 2: Room Fully On Settings */}
+              <div className="space-y-3 pt-2 border-t border-[#23354E]/20">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Room Vacancy Check (All ON)</label>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      defaultChecked={settings.roomTimerEnabled}
+                      id="input_roomTimerEnabled"
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3B82F6] peer-checked:after:bg-white"></div>
+                  </label>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 block mb-1">Alert Threshold (Hours)</label>
+                  <input 
+                    type="number" 
+                    min="1" max="24"
+                    defaultValue={settings.roomAllOnHourLimit}
+                    id="input_roomAllOnHourLimit"
+                    className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
+                  />
+                </div>
+              </div>
+
+              {/* Rule 3: Discord Alert Filters */}
+              <div className="space-y-3 pt-2 border-t border-[#23354E]/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Discord Critical Filter</label>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Send only 'Danger' alerts to Discord, suppressing 'Warnings'.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      defaultChecked={settings.discordOnlyDanger}
+                      id="input_discordOnlyDanger"
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3B82F6] peer-checked:after:bg-white"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="px-6 py-4 border-t border-[#23354E]/60 bg-slate-900/30 flex justify-end space-x-3">
+              <button 
+                onClick={() => setShowSettingsModal(false)}
+                className="px-4 py-2 rounded-lg bg-transparent border border-[#23354E] hover:bg-[#23354E]/50 text-gray-300 transition-colors text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  const officeStartHour = parseInt(document.getElementById("input_officeStartHour").value) || 9;
+                  const officeEndHour = parseInt(document.getElementById("input_officeEndHour").value) || 17;
+                  const roomAllOnHourLimit = parseInt(document.getElementById("input_roomAllOnHourLimit").value) || 2;
+                  const roomTimerEnabled = document.getElementById("input_roomTimerEnabled").checked;
+                  const discordOnlyDanger = document.getElementById("input_discordOnlyDanger").checked;
+                  handleUpdateSettings({
+                    officeStartHour,
+                    officeEndHour,
+                    roomAllOnHourLimit,
+                    roomTimerEnabled,
+                    discordOnlyDanger
+                  });
+                }}
+                className="px-4 py-2 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-colors text-xs font-bold shadow-[0_0_15px_rgba(59,130,246,0.4)]"
+              >
+                Save Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

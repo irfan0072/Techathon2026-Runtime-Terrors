@@ -90,6 +90,18 @@ app.post("/api/alerts/clear", (req, res) => {
   res.json({ success: true, message: "Alerts cleared successfully" });
 });
 
+// Get settings
+app.get("/api/settings", (req, res) => {
+  res.json({ success: true, settings: store.getSettings() });
+});
+
+// Update settings
+app.post("/api/settings", (req, res) => {
+  const updated = store.updateSettings(req.body);
+  io.emit("settings_updated", updated);
+  res.json({ success: true, settings: updated });
+});
+
 
 // Initialize HTTP Server and Socket.io
 const server = http.createServer(app);
@@ -110,7 +122,8 @@ io.on("connection", (socket) => {
     totalPower: store.getTotalPowerNow(),
     roomBreakdown: store.getRoomPowerBreakdown(),
     estimatedKWh: store.getEstimatedKWh(),
-    alerts: store.getAlerts()
+    alerts: store.getAlerts(),
+    settings: store.getSettings()
   });
 
   // Handle manual toggle requests from the frontend client via WebSockets
@@ -136,6 +149,12 @@ io.on("connection", (socket) => {
   socket.on("clear_alerts", () => {
     store.clearAlerts();
     io.emit("alerts_cleared");
+  });
+
+  // Handle request to update settings via sockets
+  socket.on("update_settings", (newSettings) => {
+    const updated = store.updateSettings(newSettings);
+    io.emit("settings_updated", updated);
   });
 
   socket.on("disconnect", () => {

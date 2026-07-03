@@ -39,11 +39,12 @@ function startSimulator(io) {
 
 // Check for alerts based on problem statement rules
 function checkAlerts(io, updatedDevice) {
+  const settings = store.getSettings();
   const now = new Date();
   const currentHour = now.getHours();
   
-  // Alert Rule 1: Devices left on after office hours (Office hours: 9 AM - 5 PM)
-  const isAfterHours = currentHour < 9 || currentHour >= 17;
+  // Alert Rule 1: Devices left on after office hours (Office hours from settings)
+  const isAfterHours = currentHour < settings.officeStartHour || currentHour >= settings.officeEndHour;
   if (isAfterHours && updatedDevice.status === true) {
     const admin = store.dummyUsers[0]; // Nafisa Rahman
     const msg = `[After Hours Alert] ${updatedDevice.room} - ${updatedDevice.name} was turned ON at ${now.toLocaleTimeString()}. Dispatching alert to Admin ${admin.name} (${admin.phone}).`;
@@ -71,7 +72,7 @@ function checkAlerts(io, updatedDevice) {
 
       if (!hasRecentRoomAlert) {
         const admin = store.dummyUsers[1]; // Tanvir Hossain
-        const msg = `[Efficiency Alert] All devices in ${room} are currently running ON simultaneously. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy.`;
+        const msg = `[Efficiency Alert] All devices in ${room} are currently running ON simultaneously. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy. Limit set to ${settings.roomAllOnHourLimit} hours.`;
         const alert = store.addAlert(msg, "danger");
         io.emit("alert_added", alert);
       }
