@@ -48,6 +48,28 @@ export default function App() {
     "Work Room 2": 0
   });
 
+  // Auth states (Default to demo credentials for judges)
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
+  const [email, setEmail] = useState("admin@smartoffice.com");
+  const [password, setPassword] = useState("adminpassword123");
+  const [loginError, setLoginError] = useState("");
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (email === "admin@smartoffice.com" && password === "adminpassword123") {
+      setIsLoggedIn(true);
+      localStorage.setItem('isLoggedIn', 'true');
+      setLoginError("");
+    } else {
+      setLoginError("Invalid credentials. Please use admin@smartoffice.com / adminpassword123.");
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('isLoggedIn');
+  };
+
   const allOnStartTimes = useRef({
     "Drawing Room": null,
     "Work Room 1": null,
@@ -207,6 +229,79 @@ export default function App() {
     ? devices 
     : devices.filter(d => d.room === selectedRoom);
 
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex items-center justify-center p-4 relative overflow-hidden font-sans">
+        {/* Background Glowing Orbs */}
+        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none animate-pulse" style={{ animationDelay: '2s' }}></div>
+
+        <div className="w-full max-w-md bg-[#161F30]/60 backdrop-blur-xl border border-[#23354E] rounded-3xl p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-10">
+          <div className="flex flex-col items-center mb-8">
+            <div className="bg-[#3B82F6] p-3 rounded-2xl text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] mb-4">
+              <Zap className="h-8 w-8 animate-pulse" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">SmartOffice Control Center</h1>
+            <p className="text-xs text-gray-400 mt-1">Please enter administrator credentials to gain access</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-1.5">Email Address</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full bg-[#0B0F19]/80 border border-[#23354E] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3B82F6] transition-colors"
+                placeholder="email@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-1.5">Password</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full bg-[#0B0F19]/80 border border-[#23354E] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3B82F6] transition-colors"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {loginError && (
+              <p className="text-xs text-red-400 font-semibold bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg">
+                ⚠️ {loginError}
+              </p>
+            )}
+
+            <button 
+              type="submit"
+              className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white py-3 rounded-xl font-bold text-sm transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] active:scale-[0.98]"
+            >
+              Access Control Room
+            </button>
+          </form>
+
+          {/* Judge details card */}
+          <div className="mt-8 p-3.5 bg-slate-900/40 border border-[#23354E]/40 rounded-xl">
+            <h4 className="text-[10px] uppercase font-bold text-[#3B82F6] tracking-wider mb-1 flex items-center gap-1">
+              ⭐ Judge Demonstration Details
+            </h4>
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              We have pre-filled the inputs above for you. Simply click the **"Access Control Room"** button to log in instantly.
+            </p>
+            <div className="text-[10px] text-gray-500 mt-2 font-mono">
+              <span className="text-gray-400 font-semibold">Email:</span> admin@smartoffice.com<br />
+              <span className="text-gray-400 font-semibold">Pass:</span> adminpassword123
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex flex-col font-sans">
       
@@ -232,6 +327,16 @@ export default function App() {
           >
             <Settings className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Settings</span>
+          </button>
+
+          {/* Logout Button */}
+          <button 
+            onClick={handleLogout}
+            className="flex items-center space-x-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg border border-red-500/20 text-xs font-semibold transition-all"
+            title="Log Out of Dashboard"
+          >
+            <XCircle className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Log Out</span>
           </button>
 
           <a 
