@@ -80,7 +80,7 @@ function checkAlerts(io, updatedDevice) {
 
       if (!hasRecentRoomAlert) {
         const admin = store.dummyUsers[1]; // Tanvir Hossain
-        const msg = `[Efficiency Alert] All devices in ${room} are currently running ON simultaneously. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy. Limit set to ${settings.roomAllOnHourLimit} hours.`;
+        const msg = `[Efficiency Alert] All devices in ${room} are currently running ON simultaneously. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy. Limit set to ${settings.roomAllOnTimeLimit} (hh:mm).`;
         const alert = store.addAlert(msg, "danger");
         io.emit("alert_added", alert);
       }

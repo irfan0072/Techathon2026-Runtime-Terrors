@@ -37,7 +37,7 @@ export default function App() {
   const [settings, setSettings] = useState({
     officeStartTime: "09:00",
     officeEndTime: "17:00",
-    roomAllOnHourLimit: 2,
+    roomAllOnTimeLimit: "02:00",
     roomTimerEnabled: true,
     discordOnlyDanger: false
   });
@@ -710,12 +710,11 @@ export default function App() {
                   </label>
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-500 block mb-1">Alert Threshold (Hours)</label>
+                  <label className="text-[10px] text-gray-500 block mb-1">Alert Threshold (Hours:Minutes)</label>
                   <input 
-                    type="number" 
-                    min="1" max="24"
-                    defaultValue={settings.roomAllOnHourLimit}
-                    id="input_roomAllOnHourLimit"
+                    type="time" 
+                    defaultValue={settings.roomAllOnTimeLimit}
+                    id="input_roomAllOnTimeLimit"
                     className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
                   />
                 </div>
@@ -753,13 +752,13 @@ export default function App() {
                 onClick={() => {
                   const officeStartTime = document.getElementById("input_officeStartTime").value || "09:00";
                   const officeEndTime = document.getElementById("input_officeEndTime").value || "17:00";
-                  const roomAllOnHourLimit = parseInt(document.getElementById("input_roomAllOnHourLimit").value) || 2;
+                  const roomAllOnTimeLimit = document.getElementById("input_roomAllOnTimeLimit").value || "02:00";
                   const roomTimerEnabled = document.getElementById("input_roomTimerEnabled").checked;
                   const discordOnlyDanger = document.getElementById("input_discordOnlyDanger").checked;
                   handleUpdateSettings({
                     officeStartTime,
                     officeEndTime,
-                    roomAllOnHourLimit,
+                    roomAllOnTimeLimit,
                     roomTimerEnabled,
                     discordOnlyDanger
                   });

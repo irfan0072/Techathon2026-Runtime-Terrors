@@ -110,7 +110,7 @@ const addAlert = (message, severity = "warning") => {
 const settings = {
   officeStartTime: "09:00",
   officeEndTime: "17:00",
-  roomAllOnHourLimit: 2,
+  roomAllOnTimeLimit: "02:00",
   roomTimerEnabled: true,
   discordOnlyDanger: false
 };
