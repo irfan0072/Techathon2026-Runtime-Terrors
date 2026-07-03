@@ -43,12 +43,36 @@ const getDevices = () => devices;
 
 const getDeviceById = (id) => devices.find(d => d.id === id);
 
+const roomAllOnStartTimes = {
+  "Drawing Room": null,
+  "Work Room 1": null,
+  "Work Room 2": null
+};
+
+const getRoomAllOnStartTimes = () => roomAllOnStartTimes;
+
+const updateRoomAllOnTracker = () => {
+  const roomsList = ["Drawing Room", "Work Room 1", "Work Room 2"];
+  roomsList.forEach(room => {
+    const roomDevices = devices.filter(d => d.room === room);
+    const allOn = roomDevices.length > 0 && roomDevices.every(d => d.status === true);
+    if (allOn) {
+      if (!roomAllOnStartTimes[room]) {
+        roomAllOnStartTimes[room] = Date.now();
+      }
+    } else {
+      roomAllOnStartTimes[room] = null;
+    }
+  });
+};
+
 const updateDeviceStatus = (id, status) => {
   const device = getDeviceById(id);
   if (device) {
     if (device.status !== status) {
       device.status = status;
       device.lastChanged = new Date().toISOString();
+      updateRoomAllOnTracker();
       return true; // status changed
     }
   }
@@ -135,5 +159,6 @@ module.exports = {
   clearAlerts,
   addAlert,
   getSettings,
-  updateSettings
+  updateSettings,
+  getRoomAllOnStartTimes
 };

@@ -39,6 +39,43 @@ function startSimulator(io) {
     }
   }, 7000);
 
+  // Run vacancy check interval every 5 seconds (Real-time vacancy alerts)
+  setInterval(() => {
+    const settings = store.getSettings();
+    if (!settings.roomTimerEnabled) return;
+
+    const startTimes = store.getRoomAllOnStartTimes();
+    const now = Date.now();
+
+    const [limitH, limitM] = (settings.roomAllOnTimeLimit || "02:00").split(":").map(Number);
+    const limitMs = (limitH * 60 + limitM) * 60 * 1000;
+
+    Object.entries(startTimes).forEach(([room, startTime]) => {
+      if (startTime) {
+        const elapsedMs = now - startTime;
+        if (elapsedMs >= limitMs) {
+          const existingAlerts = store.getAlerts();
+          // Avoid spamming this specific warning alert within 30 seconds
+          const hasRecentRoomAlert = existingAlerts.some(
+            a => a.message.includes(`all devices in ${room} have been running ON simultaneously`) && 
+            (now - new Date(a.timestamp).getTime() < 30000)
+          );
+
+          if (!hasRecentRoomAlert) {
+            const admin = store.dummyUsers[1]; // Tanvir Hossain
+            const elapsedMins = Math.floor(elapsedMs / 60000);
+            const elapsedSecs = Math.floor((elapsedMs % 60000) / 1000);
+            const timeStr = elapsedMins > 0 ? `${elapsedMins}m ${elapsedSecs}s` : `${elapsedSecs}s`;
+
+            const msg = `[Efficiency Alert] All devices in ${room} have been running ON simultaneously for ${timeStr}. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy. Limit set to ${settings.roomAllOnTimeLimit} (hh:mm).`;
+            const alert = store.addAlert(msg, "danger");
+            io.emit("alert_added", alert);
+          }
+        }
+      }
+    });
+  }, 5000);
+
   return simulatorInterval;
 }
 
@@ -94,5 +131,6 @@ function checkAlerts(io, updatedDevice) {
 }
 
 module.exports = {
-  startSimulator
+  startSimulator,
+  checkAlerts
 };

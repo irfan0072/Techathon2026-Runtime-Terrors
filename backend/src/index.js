@@ -5,7 +5,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const store = require("./store");
-const { startSimulator } = require("./simulator");
+const { startSimulator, checkAlerts } = require("./simulator");
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -141,6 +141,9 @@ io.on("connection", (socket) => {
           roomBreakdown: store.getRoomPowerBreakdown(),
           estimatedKWh: store.getEstimatedKWh()
         });
+
+        // Instantly run rule-based alert checks on manual updates (Real-time checks)
+        checkAlerts(io, device);
       }
     }
   });
