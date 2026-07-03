@@ -112,7 +112,8 @@ const settings = {
   officeEndTime: "17:00",
   roomAllOnTimeLimit: "02:00",
   roomTimerEnabled: true,
-  discordOnlyDanger: false
+  discordOnlyDanger: false,
+  autoSimulatorEnabled: true
 };
 
 const getSettings = () => settings;

@@ -8,6 +8,11 @@ function startSimulator(io) {
 
   // Runs every 7 seconds to toggle random device states
   const simulatorInterval = setInterval(() => {
+    const settings = store.getSettings();
+    if (!settings.autoSimulatorEnabled) {
+      return; // Skip automatic simulation, manual control only
+    }
+
     const devices = store.getDevices();
     
     // Pick a random device

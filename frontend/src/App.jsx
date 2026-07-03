@@ -39,7 +39,8 @@ export default function App() {
     officeEndTime: "17:00",
     roomAllOnTimeLimit: "02:00",
     roomTimerEnabled: true,
-    discordOnlyDanger: false
+    discordOnlyDanger: false,
+    autoSimulatorEnabled: true
   });
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [roomTimers, setRoomTimers] = useState({
@@ -867,6 +868,25 @@ export default function App() {
                     </label>
                   </div>
                 </div>
+
+                {/* Rule 4: Auto Simulator Toggle */}
+                <div className="space-y-3 pt-2 border-t border-[#23354E]/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Automated Demonstration</label>
+                      <p className="text-[10px] text-yellow-500/80 mt-0.5">⚠️ Just for demonstration. Turn off to allow 100% manual control only.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        defaultChecked={settings.autoSimulatorEnabled !== false}
+                        id="input_autoSimulatorEnabled"
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3B82F6] peer-checked:after:bg-white"></div>
+                    </label>
+                  </div>
+                </div>
               </div>
 
               {/* Footer Buttons */}
@@ -886,12 +906,14 @@ export default function App() {
                     const roomAllOnTimeLimit = `${hrs}:${mins}`;
                     const roomTimerEnabled = document.getElementById("input_roomTimerEnabled").checked;
                     const discordOnlyDanger = document.getElementById("input_discordOnlyDanger").checked;
+                    const autoSimulatorEnabled = document.getElementById("input_autoSimulatorEnabled").checked;
                     handleUpdateSettings({
                       officeStartTime,
                       officeEndTime,
                       roomAllOnTimeLimit,
                       roomTimerEnabled,
-                      discordOnlyDanger
+                      discordOnlyDanger,
+                      autoSimulatorEnabled
                     });
                   }}
                   className="px-4 py-2 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-colors text-xs font-bold shadow-[0_0_15px_rgba(59,130,246,0.4)]"
