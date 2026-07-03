@@ -652,125 +652,152 @@ export default function App() {
       </footer>
 
       {/* SETTINGS MODAL */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="bg-[#161F30] border border-[#23354E] rounded-2xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)]">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-[#23354E]/60 flex justify-between items-center bg-slate-900/50">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Settings className="h-4.5 w-4.5 text-[#3B82F6]" /> Control Settings
-              </h3>
-              <button 
-                onClick={() => setShowSettingsModal(false)}
-                className="text-gray-400 hover:text-white transition-colors text-lg"
-              >
-                &times;
-              </button>
-            </div>
+      {showSettingsModal && (() => {
+        const [durationHours, durationMinutes] = (settings.roomAllOnTimeLimit || "02:00").split(":").map(Number);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+            <div className="bg-[#161F30] border border-[#23354E] rounded-2xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-[#23354E]/60 flex justify-between items-center bg-slate-900/50">
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Settings className="h-4.5 w-4.5 text-[#3B82F6]" /> Control Settings
+                </h3>
+                <button 
+                  onClick={() => setShowSettingsModal(false)}
+                  className="text-gray-400 hover:text-white transition-colors text-lg"
+                >
+                  &times;
+                </button>
+              </div>
 
-            {/* Content */}
-            <div className="p-6 space-y-5 text-sm text-gray-300">
-              {/* Rule 1: Office Hours */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Office Hours Schedule</label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] text-gray-500 block mb-1">Start Time</label>
-                    <input 
-                      type="time" 
-                      defaultValue={settings.officeStartTime}
-                      id="input_officeStartTime"
-                      className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
-                    />
+              {/* Content */}
+              <div className="p-6 space-y-5 text-sm text-gray-300">
+                {/* Rule 1: Office Hours */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Office Hours Schedule</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] text-gray-500 block mb-1">Start Time</label>
+                      <input 
+                        type="time" 
+                        defaultValue={settings.officeStartTime}
+                        id="input_officeStartTime"
+                        className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-500 block mb-1">End Time</label>
+                      <input 
+                        type="time" 
+                        defaultValue={settings.officeEndTime}
+                        id="input_officeEndTime"
+                        className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-[10px] text-gray-500 block mb-1">End Time</label>
-                    <input 
-                      type="time" 
-                      defaultValue={settings.officeEndTime}
-                      id="input_officeEndTime"
-                      className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
-                    />
+                </div>
+
+                {/* Rule 2: Room Fully On Settings */}
+                <div className="space-y-3 pt-2 border-t border-[#23354E]/20">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Room Vacancy Check (All ON)</label>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        defaultChecked={settings.roomTimerEnabled}
+                        id="input_roomTimerEnabled"
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3B82F6] peer-checked:after:bg-white"></div>
+                    </label>
+                  </div>
+                  
+                  {/* Hours/Mins Dropdown Pickers */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-gray-500 block">Alert Threshold (Duration)</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[9px] text-gray-600 block mb-0.5">Hours</label>
+                        <select 
+                          id="input_durationHours"
+                          defaultValue={durationHours}
+                          className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6] text-xs"
+                        >
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={i} value={i}>{i} hr{i !== 1 ? 's' : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-gray-600 block mb-0.5">Minutes</label>
+                        <select 
+                          id="input_durationMinutes"
+                          defaultValue={durationMinutes}
+                          className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6] text-xs"
+                        >
+                          {Array.from({ length: 60 }, (_, i) => (
+                            <option key={i} value={i}>{i} min{i !== 1 ? 's' : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rule 3: Discord Alert Filters */}
+                <div className="space-y-3 pt-2 border-t border-[#23354E]/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Discord Critical Filter</label>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Send only 'Danger' alerts to Discord, suppressing 'Warnings'.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        defaultChecked={settings.discordOnlyDanger}
+                        id="input_discordOnlyDanger"
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3B82F6] peer-checked:after:bg-white"></div>
+                    </label>
                   </div>
                 </div>
               </div>
 
-              {/* Rule 2: Room Fully On Settings */}
-              <div className="space-y-3 pt-2 border-t border-[#23354E]/20">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Room Vacancy Check (All ON)</label>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      defaultChecked={settings.roomTimerEnabled}
-                      id="input_roomTimerEnabled"
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3B82F6] peer-checked:after:bg-white"></div>
-                  </label>
-                </div>
-                <div>
-                  <label className="text-[10px] text-gray-500 block mb-1">Alert Threshold (Hours:Minutes)</label>
-                  <input 
-                    type="time" 
-                    defaultValue={settings.roomAllOnTimeLimit}
-                    id="input_roomAllOnTimeLimit"
-                    className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
-                  />
-                </div>
+              {/* Footer Buttons */}
+              <div className="px-6 py-4 border-t border-[#23354E]/60 bg-slate-900/30 flex justify-end space-x-3">
+                <button 
+                  onClick={() => setShowSettingsModal(false)}
+                  className="px-4 py-2 rounded-lg bg-transparent border border-[#23354E] hover:bg-[#23354E]/50 text-gray-300 transition-colors text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    const officeStartTime = document.getElementById("input_officeStartTime").value || "09:00";
+                    const officeEndTime = document.getElementById("input_officeEndTime").value || "17:00";
+                    const hrs = document.getElementById("input_durationHours").value.padStart(2, '0');
+                    const mins = document.getElementById("input_durationMinutes").value.padStart(2, '0');
+                    const roomAllOnTimeLimit = `${hrs}:${mins}`;
+                    const roomTimerEnabled = document.getElementById("input_roomTimerEnabled").checked;
+                    const discordOnlyDanger = document.getElementById("input_discordOnlyDanger").checked;
+                    handleUpdateSettings({
+                      officeStartTime,
+                      officeEndTime,
+                      roomAllOnTimeLimit,
+                      roomTimerEnabled,
+                      discordOnlyDanger
+                    });
+                  }}
+                  className="px-4 py-2 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-colors text-xs font-bold shadow-[0_0_15px_rgba(59,130,246,0.4)]"
+                >
+                  Save Settings
+                </button>
               </div>
-
-              {/* Rule 3: Discord Alert Filters */}
-              <div className="space-y-3 pt-2 border-t border-[#23354E]/20">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Discord Critical Filter</label>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Send only 'Danger' alerts to Discord, suppressing 'Warnings'.</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      defaultChecked={settings.discordOnlyDanger}
-                      id="input_discordOnlyDanger"
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3B82F6] peer-checked:after:bg-white"></div>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer Buttons */}
-            <div className="px-6 py-4 border-t border-[#23354E]/60 bg-slate-900/30 flex justify-end space-x-3">
-              <button 
-                onClick={() => setShowSettingsModal(false)}
-                className="px-4 py-2 rounded-lg bg-transparent border border-[#23354E] hover:bg-[#23354E]/50 text-gray-300 transition-colors text-xs font-semibold"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={() => {
-                  const officeStartTime = document.getElementById("input_officeStartTime").value || "09:00";
-                  const officeEndTime = document.getElementById("input_officeEndTime").value || "17:00";
-                  const roomAllOnTimeLimit = document.getElementById("input_roomAllOnTimeLimit").value || "02:00";
-                  const roomTimerEnabled = document.getElementById("input_roomTimerEnabled").checked;
-                  const discordOnlyDanger = document.getElementById("input_discordOnlyDanger").checked;
-                  handleUpdateSettings({
-                    officeStartTime,
-                    officeEndTime,
-                    roomAllOnTimeLimit,
-                    roomTimerEnabled,
-                    discordOnlyDanger
-                  });
-                }}
-                className="px-4 py-2 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-colors text-xs font-bold shadow-[0_0_15px_rgba(59,130,246,0.4)]"
-              >
-                Save Settings
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
