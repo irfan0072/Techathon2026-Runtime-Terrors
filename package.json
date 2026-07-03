@@ -1,0 +1,21 @@
+{
+  "name": "teckathon-office-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Smart Office Power & Device Monitoring System (Hackathon Project)",
+  "workspaces": [
+    "backend",
+    "frontend",
+    "bot"
+  ],
+  "scripts": {
+    "backend": "npm run dev --workspace=backend",
+    "frontend": "npm run dev --workspace=frontend",
+    "bot": "npm run dev --workspace=bot",
+    "dev": "concurrently --kill-others \"npm run backend\" \"npm run frontend\" \"npm run bot\"",
+    "install-all": "npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

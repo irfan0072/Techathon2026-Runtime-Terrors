@@ -1,0 +1,20 @@
+# Dependency Directories
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+bot/node_modules/
+
+# Production Builds
+frontend/dist/
+
+# Local Environment Variables
+.env
+backend/.env
+bot/.env
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Hackathon Task Folder (Problem Statements)
+task/
