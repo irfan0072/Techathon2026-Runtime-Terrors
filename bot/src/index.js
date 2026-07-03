@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const axios = require("axios");
 const io = require("socket.io-client");
 require("dotenv").config();
@@ -7,6 +7,7 @@ require("dotenv").config();
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "PLACEHOLDER_TOKEN";
 const BACKEND_URL = process.env.BACKEND_URL || "https://teckathon-backend.onrender.com";
 const ALERTS_CHANNEL_ID = process.env.ALERTS_CHANNEL_ID || "PLACEHOLDER_CHANNEL_ID";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const PREFIX = "!";
 
 // Initialize Discord Client
@@ -17,6 +18,71 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+
+// Helper to query Gemini 2.5 Flash and humanize responses
+async function humanizeResponse(systemContext, rawDataText) {
+  if (!GEMINI_API_KEY) {
+    // Fallback friendly formatting
+    return `👋 **SmartOffice Update**\n${systemContext}\n\n${rawDataText}`;
+  }
+
+  try {
+    const prompt = `You are a helpful, extremely polite, and professional Smart Office monitoring assistant. 
+Explain the following raw data/status to the office manager/boss in a natural, friendly, human conversational tone.
+Be polite and clear. You can write in English or match the language/style of the context (including Bengali or Banglish if the boss asks in that format).
+Keep it concise and tidy.
+
+Context/Query: ${systemContext}
+Raw status details:
+${rawDataText}`;
+
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        contents: [{
+          parts: [{ text: prompt }]
+        }]
+      },
+      { timeout: 5000 }
+    );
+
+    const candidateText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (candidateText) {
+      return candidateText.trim();
+    }
+  } catch (err) {
+    console.error("[Gemini] API error, using friendly fallback:", err.message);
+  }
+
+  return `👋 **SmartOffice Update**\n${systemContext}\n\n${rawDataText}`;
+}
+
+// Generate the 5-button shortcut menu row
+function getShortcutButtons() {
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("btn_status")
+      .setLabel("📋 Office Status")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("btn_usage")
+      .setLabel("⚡ Energy Usage")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId("btn_drawing")
+      .setLabel("🛋️ Drawing Room")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("btn_work1")
+      .setLabel("💻 Work Room 1")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("btn_work2")
+      .setLabel("🛠️ Work Room 2")
+      .setStyle(ButtonStyle.Secondary)
+  );
+  return [row];
+}
 
 // Live listener for proactive alerts using Socket.io-client
 let socket;
@@ -58,14 +124,17 @@ function connectToBackendSockets() {
       try {
         const channel = await client.channels.fetch(ALERTS_CHANNEL_ID);
         if (channel && channel.isTextBased()) {
+          // Humanize proactive alert details
+          const friendlyAlert = await humanizeResponse("Proactive anomaly warning alert.", alert.message);
+
           const alertEmbed = new EmbedBuilder()
             .setTitle(alert.severity === 'danger' ? "⚠️ CRITICAL EFFICIENCY WARNING" : "🔔 SYSTEM ALERT")
-            .setDescription(alert.message)
+            .setDescription(friendlyAlert)
             .setColor(alert.severity === 'danger' ? 0xEF4444 : 0xF59E0B)
             .setTimestamp(new Date(alert.timestamp));
             
-          await channel.send({ embeds: [alertEmbed] });
-          console.log("[Bot] Proactive alert dispatched to channel.");
+          await channel.send({ embeds: [alertEmbed], components: getShortcutButtons() });
+          console.log("[Bot] Proactive alert dispatched to channel with shortcut controls.");
         }
       } catch (err) {
         console.error("[Bot] Failed to dispatch alert to Discord channel:", err.message);
@@ -83,10 +152,100 @@ client.once("ready", () => {
   connectToBackendSockets();
 });
 
+// Interactive Button Clicks listener
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isButton()) return;
+
+  const customId = interaction.customId;
+  await interaction.deferReply(); // Notify Discord we are loading details
+
+  try {
+    if (customId === "btn_status") {
+      const response = await axios.get(`${BACKEND_URL}/api/devices`);
+      const { devices } = response.data;
+      const rooms = ["Drawing Room", "Work Room 1", "Work Room 2"];
+      const summaryList = rooms.map(room => {
+        const roomDevices = devices.filter(d => d.room === room);
+        const activeFans = roomDevices.filter(d => d.type === "fan" && d.status).length;
+        const activeLights = roomDevices.filter(d => d.type === "light" && d.status).length;
+        if (activeFans === 0 && activeLights === 0) return `**${room}**: all off`;
+        const details = [];
+        if (activeFans > 0) details.push(`${activeFans} fan${activeFans > 1 ? "s" : ""} ON`);
+        if (activeLights > 0) details.push(`${activeLights} light${activeLights > 1 ? "s" : ""} ON`);
+        return `**${room}**: ${details.join(" and ")}`;
+      });
+
+      const rawText = summaryList.join("\n");
+      const friendlyText = await humanizeResponse("Overall status overview of all rooms", rawText);
+      await interaction.editReply({ content: friendlyText, components: getShortcutButtons() });
+    } 
+    
+    else if (customId === "btn_usage") {
+      const response = await axios.get(`${BACKEND_URL}/api/usage`);
+      const { metrics } = response.data;
+      const breakdownLines = Object.entries(metrics.roomBreakdown)
+        .map(([room, power]) => `• ${room}: ${power} W`)
+        .join("\n");
+      
+      const rawText = `Total load: ${metrics.totalPowerNow} Watts\nBreakdown:\n${breakdownLines}\nToday's kWh: ${metrics.estimatedKWh} kWh`;
+      const friendlyText = await humanizeResponse("Energy consumption summary of the office.", rawText);
+      await interaction.editReply({ content: friendlyText, components: getShortcutButtons() });
+    } 
+    
+    else {
+      let targetRoom = "";
+      if (customId === "btn_drawing") targetRoom = "Drawing Room";
+      else if (customId === "btn_work1") targetRoom = "Work Room 1";
+      else if (customId === "btn_work2") targetRoom = "Work Room 2";
+
+      if (targetRoom) {
+        const response = await axios.get(`${BACKEND_URL}/api/devices`);
+        const { devices } = response.data;
+        const roomDevices = devices.filter(d => d.room === targetRoom);
+        const deviceLines = roomDevices.map(d => {
+          const icon = d.status ? "🟢" : "⚫";
+          const stateStr = d.status ? `**ON** (${d.powerDraw}W)` : "OFF";
+          return `${icon} ${d.name}: ${stateStr}`;
+        });
+        const totalPower = roomDevices.reduce((sum, d) => sum + (d.status ? d.powerDraw : 0), 0);
+
+        const rawText = `${deviceLines.join("\n")}\nTotal Room Power: ${totalPower} W`;
+        const friendlyText = await humanizeResponse(`Status check for ${targetRoom}.`, rawText);
+        await interaction.editReply({ content: friendlyText, components: getShortcutButtons() });
+      }
+    }
+  } catch (err) {
+    console.error("[Bot Interaction] Error executing button response:", err.message);
+    await interaction.editReply({
+      content: "⚠️ Failed to execute query. Backend API is currently offline.",
+      components: getShortcutButtons()
+    });
+  }
+});
+
 // Message commands listener
 client.on("messageCreate", async (message) => {
-  // Ignore messages from bots or without prefix
-  if (message.author.bot || !message.content.startsWith(PREFIX)) return;
+  // Ignore messages from bots
+  if (message.author.bot) return;
+
+  // If message doesn't start with prefix, output help buttons menu for ease of use
+  if (!message.content.startsWith(PREFIX)) {
+    // If the boss sends an random conversational text, we can use Gemini to converse with them back!
+    if (GEMINI_API_KEY) {
+      try {
+        const response = await axios.get(`${BACKEND_URL}/api/usage`);
+        const { metrics } = response.data;
+        const ctxPrompt = `The boss just said: "${message.content}". Answer conversational, and display these quick options. Current load: ${metrics.totalPowerNow}W.`;
+        const aiMessage = await humanizeResponse(ctxPrompt, "Feel free to use the shortcut buttons below to fetch reports instantly!");
+        await message.reply({ content: aiMessage, components: getShortcutButtons() });
+      } catch (err) {
+        await message.reply({ content: `🤖 Hello! You can type commands like \`!status\` or simply click the shortcut buttons below:`, components: getShortcutButtons() });
+      }
+    } else {
+      await message.reply({ content: `🤖 Hello! You can type commands like \`!status\` or simply click the shortcut buttons below:`, components: getShortcutButtons() });
+    }
+    return;
+  }
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
@@ -102,25 +261,19 @@ client.on("messageCreate", async (message) => {
         const roomDevices = devices.filter(d => d.room === room);
         const activeFans = roomDevices.filter(d => d.type === "fan" && d.status).length;
         const activeLights = roomDevices.filter(d => d.type === "light" && d.status).length;
-        
-        if (activeFans === 0 && activeLights === 0) {
-          return `**${room}**: all off`;
-        }
-        
+        if (activeFans === 0 && activeLights === 0) return `**${room}**: all off`;
         const details = [];
         if (activeFans > 0) details.push(`${activeFans} fan${activeFans > 1 ? "s" : ""} ON`);
         if (activeLights > 0) details.push(`${activeLights} light${activeLights > 1 ? "s" : ""} ON`);
         return `**${room}**: ${details.join(" and ")}`;
       });
 
-      // Conversational formatting matching the boss's preferences
-      const reply = `👋 Hello Boss! Here is the live status report of the office devices:
-\n• ${summaryList.join("\n• ")}
-\n*Everything is running live, and the systems are stable! Let me know if you need to turn anything off.*`;
+      const rawText = summaryList.join("\n");
+      const friendlyText = await humanizeResponse("Overall status overview of all rooms", rawText);
 
-      await message.reply(reply);
+      await message.reply({ content: friendlyText, components: getShortcutButtons() });
     } catch (err) {
-      console.error("[Bot] Error fetching devices status:", err.message);
+      console.error("[Bot] Error status command:", err.message);
       await message.reply("⚠️ Sorry, I had trouble communicating with the backend API. Please make sure the server is online!");
     }
   }
@@ -150,7 +303,6 @@ client.on("messageCreate", async (message) => {
       const { devices } = response.data;
       
       const roomDevices = devices.filter(d => d.room === targetRoom);
-      
       const deviceLines = roomDevices.map(d => {
         const icon = d.status ? "🟢" : "⚫";
         const stateStr = d.status ? `**ON** (${d.powerDraw}W)` : "OFF";
@@ -158,15 +310,13 @@ client.on("messageCreate", async (message) => {
       });
 
       const totalPower = roomDevices.reduce((sum, d) => sum + (d.status ? d.powerDraw : 0), 0);
+      const rawText = `${deviceLines.join("\n")}\nTotal draw: ${totalPower} Watts`;
+      const friendlyText = await humanizeResponse(`Status check for ${targetRoom}.`, rawText);
 
-      const reply = `🏢 **${targetRoom} Status Report**
-\n${deviceLines.join("\n")}
-\n⚡ Total room consumption: **${totalPower} Watts**.`;
-
-      await message.reply(reply);
+      await message.reply({ content: friendlyText, components: getShortcutButtons() });
     } catch (err) {
       console.error("[Bot] Error fetching room details:", err.message);
-      await message.reply("⚠️ Sorry, I failed to fetch the room state from the backend API.");
+      await message.reply("⚠️ Sorry, I failed to fetch the room state from the backend.");
     }
   }
 
@@ -176,18 +326,14 @@ client.on("messageCreate", async (message) => {
       const response = await axios.get(`${BACKEND_URL}/api/usage`);
       const { metrics } = response.data;
 
-      // Build room breakdowns
       const breakdownLines = Object.entries(metrics.roomBreakdown)
         .map(([room, power]) => `• ${room}: **${power} W**`)
         .join("\n");
 
-      const reply = `⚡ **Office Energy Consumption Summary**
-\n• Total power draw right now: **${metrics.totalPowerNow} Watts**
-${breakdownLines}
-\n📈 Today's estimated consumption: **${metrics.estimatedKWh} kWh**
-\n*Energy efficiency tips: Turn off lights/fans in Work Room 2 if the room is empty!*`;
+      const rawText = `Total load: ${metrics.totalPowerNow} Watts\nBreakdown:\n${breakdownLines}\nAccumulated: ${metrics.estimatedKWh} kWh`;
+      const friendlyText = await humanizeResponse("Energy consumption summary of the office.", rawText);
 
-      await message.reply(reply);
+      await message.reply({ content: friendlyText, components: getShortcutButtons() });
     } catch (err) {
       console.error("[Bot] Error fetching power usage:", err.message);
       await message.reply("⚠️ Sorry, I could not load power usage parameters from the server.");
@@ -196,12 +342,8 @@ ${breakdownLines}
   
   // COMMAND: !help
   else if (command === "help") {
-    const helpMsg = `🤖 **SmartOffice Command Center**
-Here are the commands you can use:
-• \`!status\` - Get a quick conversational overview of all 3 rooms.
-• \`!room <drawing|work 1|work 2>\` - Review detailed device statuses for a specific room.
-• \`!usage\` - See current load breakdowns (Watts) and today's accumulated kWh.`;
-    await message.reply(helpMsg);
+    const helpMsg = `🤖 **SmartOffice Command Center**\nClick the shortcut buttons below or type any commands:\n• \`!status\`\n• \`!room <drawing|work 1|work 2>\`\n• \`!usage\``;
+    await message.reply({ content: helpMsg, components: getShortcutButtons() });
   }
 });
 
@@ -224,4 +366,3 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`[Bot] Dummy HTTP health-check listening on port ${PORT}`);
 });
-
