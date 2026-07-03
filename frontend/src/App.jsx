@@ -306,29 +306,20 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex flex-col font-sans">
       
-      {/* HEADER */}
-      <header className="border-b border-[#23354E] bg-[#161F30]/60 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center justify-between w-full md:w-auto">
-          <div className="flex items-center space-x-3">
-            <div className="bg-[#3B82F6] p-2 rounded-xl text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-              <Zap className="h-6 w-6 animate-pulse" />
-            </div>
-            <div>
-              <h1 className="text-lg md:text-xl font-bold tracking-tight text-white">SmartOffice</h1>
-              <p className="text-[10px] text-gray-400 hidden sm:block">Power & Device Monitoring Control Room</p>
-            </div>
+      {/* STICKY MAIN HEADER */}
+      <header className="border-b border-[#23354E] bg-[#161F30]/80 backdrop-blur-md sticky top-0 z-40 px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="bg-[#3B82F6] p-1.5 rounded-lg text-white shadow-[0_0_12px_rgba(59,130,246,0.5)]">
+            <Zap className="h-5 w-5 animate-pulse" />
           </div>
-          {/* Mobile connection status */}
-          <div className="flex items-center space-x-2 md:hidden">
-            <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse-glow shadow-[0_0_8px_#10b981]' : 'bg-red-500'}`}></span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-300">
-              {connected ? 'Live Sync' : 'Offline'}
-            </span>
+          <div>
+            <h1 className="text-base md:text-lg font-bold tracking-tight text-white">SmartOffice</h1>
+            <p className="text-[10px] text-gray-400 hidden sm:block">Power & Device Monitoring Control Room</p>
           </div>
         </div>
 
-        {/* CONNECTION STATUS & TIME */}
-        <div className="flex flex-wrap items-center justify-center md:justify-end gap-2 md:gap-3 w-full md:w-auto">
+        {/* CORE ACTIONS & CONNECTION */}
+        <div className="flex items-center space-x-2 md:space-x-3">
           {/* Settings Button */}
           <button 
             onClick={() => setShowSettingsModal(true)}
@@ -349,36 +340,40 @@ export default function App() {
             <span>Log Out</span>
           </button>
 
-          <a 
-            href="https://discord.gg/euFt99ETT" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center space-x-1.5 bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-[#0088cc] px-2.5 py-1.5 rounded-lg border border-[#0088cc]/30 text-xs font-semibold transition-all shadow-[0_0_10px_rgba(0,136,204,0.1)] hover:shadow-[0_0_15px_rgba(0,136,204,0.2)]"
-          >
-            <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1 .22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .24z"/>
-            </svg>
-            <span>Telegram</span>
-          </a>
-
-          <div className="flex items-center space-x-2 bg-[#23354E]/40 px-2.5 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
-            <Clock className="h-3.5 w-3.5 text-[#3B82F6] animate-pulse" />
-            <span className="font-semibold text-white tracking-wider">{time}</span>
-          </div>
-
-          <div className="flex items-center space-x-2 bg-[#23354E]/40 px-2.5 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
-            <Clock className="h-3.5 w-3.5 text-gray-400" />
-            <span>Hours: {settings.officeStartTime}-{settings.officeEndTime}</span>
-          </div>
-
-          <div className="hidden md:flex items-center space-x-2">
+          {/* Connection Indicator */}
+          <div className="flex items-center space-x-1.5 bg-[#23354E]/30 px-2.5 py-1.5 rounded-lg border border-[#23354E]/40 text-xs">
             <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse-glow shadow-[0_0_8px_#10b981]' : 'bg-red-500'}`}></span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-300">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-300 hidden sm:inline">
               {connected ? 'Live Sync' : 'Offline'}
             </span>
           </div>
         </div>
       </header>
+
+      {/* NON-STICKY METADATA SUB-HEADER (Scrolls away to save vertical space on mobile) */}
+      <div className="bg-[#111827]/80 border-b border-[#23354E]/30 px-6 py-2.5 flex flex-wrap gap-2 justify-center sm:justify-start items-center text-xs text-gray-400">
+        <a 
+          href="https://discord.gg/euFt99ETT" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center space-x-1.5 bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-[#0088cc] px-2.5 py-1.5 rounded-lg border border-[#0088cc]/30 text-xs font-semibold transition-all shadow-[0_0_10px_rgba(0,136,204,0.1)] hover:shadow-[0_0_15px_rgba(0,136,204,0.2)]"
+        >
+          <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1 .22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .24z"/>
+          </svg>
+          <span>Telegram</span>
+        </a>
+
+        <div className="flex items-center space-x-2 bg-[#23354E]/40 px-2.5 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
+          <Clock className="h-3.5 w-3.5 text-[#3B82F6] animate-pulse" />
+          <span className="font-semibold text-white tracking-wider">{time}</span>
+        </div>
+
+        <div className="flex items-center space-x-2 bg-[#23354E]/40 px-2.5 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
+          <Clock className="h-3.5 w-3.5 text-gray-400" />
+          <span>Office Hours: {settings.officeStartTime} - {settings.officeEndTime}</span>
+        </div>
+      </div>
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
