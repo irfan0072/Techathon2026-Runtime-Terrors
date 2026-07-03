@@ -30,6 +30,15 @@ export default function App() {
   const [alerts, setAlerts] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState("All");
+  const [time, setTime] = useState(new Date().toLocaleTimeString());
+
+  // Live clock setup
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Socket setup
   useEffect(() => {
@@ -133,6 +142,11 @@ export default function App() {
             </svg>
             <span>Telegram Channel</span>
           </a>
+
+          <div className="flex items-center space-x-2 bg-[#23354E]/40 px-3 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
+            <Clock className="h-3.5 w-3.5 text-[#3B82F6] animate-pulse" />
+            <span className="font-semibold text-white tracking-wider">{time}</span>
+          </div>
 
           <div className="flex items-center space-x-2 bg-[#23354E]/40 px-3 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
             <Clock className="h-3.5 w-3.5 text-gray-400" />
