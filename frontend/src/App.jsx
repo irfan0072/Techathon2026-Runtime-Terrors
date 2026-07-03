@@ -11,7 +11,8 @@ import {
   MapPin, 
   CheckCircle,
   XCircle,
-  HelpCircle
+  HelpCircle,
+  Settings
 } from 'lucide-react';
 
 export default function App() {
@@ -30,6 +31,96 @@ export default function App() {
   const [alerts, setAlerts] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState("All");
+  const [time, setTime] = useState(new Date().toLocaleTimeString());
+
+  // Settings & Timers states
+  const [settings, setSettings] = useState({
+    officeStartTime: "09:00",
+    officeEndTime: "17:00",
+    roomAllOnTimeLimit: "02:00",
+    roomTimerEnabled: true,
+    discordOnlyDanger: false,
+    autoSimulatorEnabled: true
+  });
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [roomTimers, setRoomTimers] = useState({
+    "Drawing Room": 0,
+    "Work Room 1": 0,
+    "Work Room 2": 0
+  });
+
+  // Auth states (Default to demo credentials for judges)
+  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('isLoggedIn') === 'true');
+  const [email, setEmail] = useState("admin@smartoffice.com");
+  const [password, setPassword] = useState("adminpassword123");
+  const [loginError, setLoginError] = useState("");
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (email === "admin@smartoffice.com" && password === "adminpassword123") {
+      setIsLoggedIn(true);
+      localStorage.setItem('isLoggedIn', 'true');
+      setLoginError("");
+    } else {
+      setLoginError("Invalid credentials. Please use admin@smartoffice.com / adminpassword123.");
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('isLoggedIn');
+  };
+
+  const allOnStartTimes = useRef({
+    "Drawing Room": null,
+    "Work Room 1": null,
+    "Work Room 2": null
+  });
+
+  // Live clock setup
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Room All-On timer updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const roomsList = ["Drawing Room", "Work Room 1", "Work Room 2"];
+      const newTimers = { ...roomTimers };
+      let updated = false;
+
+      roomsList.forEach(room => {
+        const roomDevices = devices.filter(d => d.room === room);
+        const allOn = roomDevices.length > 0 && roomDevices.every(d => d.status);
+
+        if (allOn && settings.roomTimerEnabled) {
+          if (!allOnStartTimes.current[room]) {
+            allOnStartTimes.current[room] = Date.now();
+          }
+          const elapsedSecs = Math.floor((Date.now() - allOnStartTimes.current[room]) / 1000);
+          if (newTimers[room] !== elapsedSecs) {
+            newTimers[room] = elapsedSecs;
+            updated = true;
+          }
+        } else {
+          if (allOnStartTimes.current[room] !== null || newTimers[room] !== 0) {
+            allOnStartTimes.current[room] = null;
+            newTimers[room] = 0;
+            updated = true;
+          }
+        }
+      });
+
+      if (updated) {
+        setRoomTimers(newTimers);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [devices, settings.roomTimerEnabled, roomTimers]);
 
   // Socket setup
   useEffect(() => {
@@ -58,6 +149,13 @@ export default function App() {
       setRoomBreakdown(data.roomBreakdown || {});
       setEstimatedKWh(data.estimatedKWh || 4.2);
       setAlerts(data.alerts || []);
+      if (data.settings) {
+        setSettings(data.settings);
+      }
+    });
+
+    socketInstance.on('settings_updated', (updated) => {
+      setSettings(updated);
     });
 
     // Receive incremental update broadcasts
@@ -73,6 +171,11 @@ export default function App() {
     // Receive alert notifications
     socketInstance.on('alert_added', (alert) => {
       setAlerts(prev => [alert, ...prev].slice(0, 50));
+    });
+
+    // Receive alerts cleared event
+    socketInstance.on('alerts_cleared', () => {
+      setAlerts([]);
     });
 
     // Fetch initial dummy users list
@@ -97,6 +200,28 @@ export default function App() {
     }
   };
 
+  // Handle clear alerts
+  const handleClearAlerts = () => {
+    if (socket) {
+      socket.emit("clear_alerts");
+    }
+  };
+
+  // Handle settings update
+  const handleUpdateSettings = (newSettings) => {
+    if (socket) {
+      socket.emit("update_settings", newSettings);
+    }
+    setShowSettingsModal(false);
+  };
+
+  // Helper to format timers
+  const formatTime = (totalSecs) => {
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const activeDevices = devices.filter(d => d.status);
   const rooms = ["All", "Drawing Room", "Work Room 1", "Work Room 2"];
 
@@ -105,36 +230,150 @@ export default function App() {
     ? devices 
     : devices.filter(d => d.room === selectedRoom);
 
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex items-center justify-center p-4 relative overflow-hidden font-sans">
+        {/* Background Glowing Orbs */}
+        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none animate-pulse" style={{ animationDelay: '2s' }}></div>
+
+        <div className="w-full max-w-md bg-[#161F30]/60 backdrop-blur-xl border border-[#23354E] rounded-3xl p-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-10">
+          <div className="flex flex-col items-center mb-8">
+            <div className="bg-[#3B82F6] p-3 rounded-2xl text-white shadow-[0_0_20px_rgba(59,130,246,0.5)] mb-4">
+              <Zap className="h-8 w-8 animate-pulse" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">SmartOffice Control Center</h1>
+            <p className="text-xs text-gray-400 mt-1">Please enter administrator credentials to gain access</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-1.5">Email Address</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full bg-[#0B0F19]/80 border border-[#23354E] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3B82F6] transition-colors"
+                placeholder="email@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-gray-400 block mb-1.5">Password</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full bg-[#0B0F19]/80 border border-[#23354E] rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#3B82F6] transition-colors"
+                placeholder="••••••••"
+              />
+            </div>
+
+            {loginError && (
+              <p className="text-xs text-red-400 font-semibold bg-red-500/10 border border-red-500/20 p-2.5 rounded-lg">
+                ⚠️ {loginError}
+              </p>
+            )}
+
+            <button 
+              type="submit"
+              className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white py-3 rounded-xl font-bold text-sm transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] active:scale-[0.98]"
+            >
+              Access Control Room
+            </button>
+          </form>
+
+          {/* Judge details card */}
+          <div className="mt-8 p-3.5 bg-slate-900/40 border border-[#23354E]/40 rounded-xl">
+            <h4 className="text-[10px] uppercase font-bold text-[#3B82F6] tracking-wider mb-1 flex items-center gap-1">
+              ⭐ Judge Demonstration Details
+            </h4>
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              We have pre-filled the inputs above for you. Simply click the **"Access Control Room"** button to log in instantly.
+            </p>
+            <div className="text-[10px] text-gray-500 mt-2 font-mono">
+              <span className="text-gray-400 font-semibold">Email:</span> admin@smartoffice.com<br />
+              <span className="text-gray-400 font-semibold">Pass:</span> adminpassword123
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex flex-col font-sans">
       
-      {/* HEADER */}
-      <header className="border-b border-[#23354E] bg-[#161F30]/60 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex items-center justify-between">
+      {/* STICKY MAIN HEADER */}
+      <header className="border-b border-[#23354E] bg-[#161F30]/80 backdrop-blur-md sticky top-0 z-40 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="bg-[#3B82F6] p-2 rounded-xl text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-            <Zap className="h-6 w-6 animate-pulse" />
+          <div className="bg-[#3B82F6] p-1.5 rounded-lg text-white shadow-[0_0_12px_rgba(59,130,246,0.5)]">
+            <Zap className="h-5 w-5 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-white">SmartOffice</h1>
-            <p className="text-xs text-gray-400">Power & Device Monitoring Control Room</p>
+            <h1 className="text-base md:text-lg font-bold tracking-tight text-white">SmartOffice</h1>
+            <p className="text-[10px] text-gray-400 hidden sm:block">Power & Device Monitoring Control Room</p>
           </div>
         </div>
 
-        {/* CONNECTION STATUS & TIME */}
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 bg-[#23354E]/40 px-3 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
-            <Clock className="h-3.5 w-3.5 text-gray-400" />
-            <span>Office Hours: 09:00 - 17:00</span>
-          </div>
+        {/* CORE ACTIONS & CONNECTION */}
+        <div className="flex items-center space-x-2 md:space-x-3">
+          {/* Settings Button */}
+          <button 
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center space-x-1.5 bg-[#23354E]/40 hover:bg-[#23354E]/80 text-gray-300 hover:text-white px-2.5 py-1.5 rounded-lg border border-[#23354E]/60 text-xs font-semibold transition-all"
+            title="Open Control Settings"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            <span>Settings</span>
+          </button>
 
-          <div className="flex items-center space-x-2">
+          {/* Logout Button */}
+          <button 
+            onClick={handleLogout}
+            className="flex items-center space-x-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-2.5 py-1.5 rounded-lg border border-red-500/20 text-xs font-semibold transition-all"
+            title="Log Out of Dashboard"
+          >
+            <XCircle className="h-3.5 w-3.5" />
+            <span>Log Out</span>
+          </button>
+
+          {/* Connection Indicator */}
+          <div className="flex items-center space-x-1.5 bg-[#23354E]/30 px-2.5 py-1.5 rounded-lg border border-[#23354E]/40 text-xs">
             <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-emerald-500 animate-pulse-glow shadow-[0_0_8px_#10b981]' : 'bg-red-500'}`}></span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-300">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-300 hidden sm:inline">
               {connected ? 'Live Sync' : 'Offline'}
             </span>
           </div>
         </div>
       </header>
+
+      {/* NON-STICKY METADATA SUB-HEADER (Scrolls away to save vertical space on mobile) */}
+      <div className="bg-[#111827]/80 border-b border-[#23354E]/30 px-6 py-2.5 flex flex-wrap gap-2 justify-center items-center text-xs text-gray-400">
+        <a 
+          href="https://discord.gg/euFt99ETT" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center space-x-1.5 bg-[#0088cc]/10 hover:bg-[#0088cc]/20 text-[#0088cc] px-2.5 py-1.5 rounded-lg border border-[#0088cc]/30 text-xs font-semibold transition-all shadow-[0_0_10px_rgba(0,136,204,0.1)] hover:shadow-[0_0_15px_rgba(0,136,204,0.2)]"
+        >
+          <svg className="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1 .22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .24z"/>
+          </svg>
+          <span>Telegram</span>
+        </a>
+
+        <div className="flex items-center space-x-2 bg-[#23354E]/40 px-2.5 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
+          <Clock className="h-3.5 w-3.5 text-[#3B82F6] animate-pulse" />
+          <span className="font-semibold text-white tracking-wider">{time}</span>
+        </div>
+
+        <div className="flex items-center space-x-2 bg-[#23354E]/40 px-2.5 py-1.5 rounded-lg border border-[#23354E]/60 text-xs">
+          <Clock className="h-3.5 w-3.5 text-gray-400" />
+          <span>Office Hours: {settings.officeStartTime} - {settings.officeEndTime}</span>
+        </div>
+      </div>
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -219,8 +458,15 @@ export default function App() {
                 
                 {/* DRAWING ROOM */}
                 <div className="border border-[#23354E]/60 bg-[#161F30]/30 rounded-lg p-3 flex flex-col justify-between min-h-[220px]">
-                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2">
-                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Drawing Room</span>
+                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      {roomTimers["Drawing Room"] > 0 && settings.roomTimerEnabled && (
+                        <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-1 py-0.5 rounded animate-pulse font-mono font-bold">
+                          ⏱️ {formatTime(roomTimers["Drawing Room"])}
+                        </span>
+                      )}
+                      <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Drawing Room</span>
+                    </div>
                     <div className="text-[10px] text-blue-400 font-semibold">{roomBreakdown["Drawing Room"] || 0}W draw</div>
                   </div>
                   
@@ -264,8 +510,15 @@ export default function App() {
 
                 {/* WORK ROOM 1 */}
                 <div className="border border-[#23354E]/60 bg-[#161F30]/30 rounded-lg p-3 flex flex-col justify-between min-h-[220px]">
-                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2">
-                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Work Room 1</span>
+                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      {roomTimers["Work Room 1"] > 0 && settings.roomTimerEnabled && (
+                        <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-1 py-0.5 rounded animate-pulse font-mono font-bold">
+                          ⏱️ {formatTime(roomTimers["Work Room 1"])}
+                        </span>
+                      )}
+                      <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Work Room 1</span>
+                    </div>
                     <div className="text-[10px] text-blue-400 font-semibold">{roomBreakdown["Work Room 1"] || 0}W draw</div>
                   </div>
                   
@@ -309,8 +562,15 @@ export default function App() {
 
                 {/* WORK ROOM 2 */}
                 <div className="border border-[#23354E]/60 bg-[#161F30]/30 rounded-lg p-3 flex flex-col justify-between min-h-[220px]">
-                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2">
-                    <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Work Room 2</span>
+                  <div className="border-b border-[#23354E]/40 pb-1.5 mb-2 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      {roomTimers["Work Room 2"] > 0 && settings.roomTimerEnabled && (
+                        <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-1 py-0.5 rounded animate-pulse font-mono font-bold">
+                          ⏱️ {formatTime(roomTimers["Work Room 2"])}
+                        </span>
+                      )}
+                      <span className="text-xs font-bold text-gray-300 uppercase tracking-wide">Work Room 2</span>
+                    </div>
                     <div className="text-[10px] text-blue-400 font-semibold">{roomBreakdown["Work Room 2"] || 0}W draw</div>
                   </div>
                   
@@ -367,7 +627,7 @@ export default function App() {
               </div>
 
               {/* Room select filters */}
-              <div className="flex bg-[#0B0F19] rounded-lg p-1 border border-[#23354E]">
+              <div className="flex flex-wrap bg-[#0B0F19] rounded-lg p-1 border border-[#23354E] gap-1">
                 {rooms.map(room => (
                   <button 
                     key={room}
@@ -423,9 +683,19 @@ export default function App() {
 
           {/* ACTIVE ALERTS LIST */}
           <section className="glass-panel p-6 flex flex-col max-h-[400px]">
-            <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" /> Active System Alerts
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-base font-semibold text-white flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" /> Active System Alerts
+              </h2>
+              {alerts.length > 0 && (
+                <button 
+                  onClick={handleClearAlerts}
+                  className="text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2.5 py-1 rounded-md font-semibold transition-all hover:border-red-500/40"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
             
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
               {alerts.map(alert => (
@@ -480,15 +750,6 @@ export default function App() {
             </div>
           </section>
 
-          {/* SYSTEM DESCRIPTION */}
-          <section className="glass-panel p-6 border-dashed border-[#23354E] bg-transparent">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Hackathon Architecture Info</h3>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              This React Dashboard integrates directly with an Express backend using Socket.io for live updates. 
-              The floor plan renders simulated room layout configurations. Clicking any device toggles the live 
-              state across all endpoints, acting as a Single Source of Truth.
-            </p>
-          </section>
 
         </div>
 
@@ -498,6 +759,175 @@ export default function App() {
       <footer className="border-t border-[#23354E] bg-slate-950 py-4 text-center text-xs text-gray-500">
         <p>&copy; {new Date().getFullYear()} SmartOffice Monitor. Built for Techathon.</p>
       </footer>
+
+      {/* SETTINGS MODAL */}
+      {showSettingsModal && (() => {
+        const [durationHours, durationMinutes] = (settings.roomAllOnTimeLimit || "02:00").split(":").map(Number);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+            <div className="bg-[#161F30] border border-[#23354E] rounded-2xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-[#23354E]/60 flex justify-between items-center bg-slate-900/50">
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Settings className="h-4.5 w-4.5 text-[#3B82F6]" /> Control Settings
+                </h3>
+                <button 
+                  onClick={() => setShowSettingsModal(false)}
+                  className="text-gray-400 hover:text-white transition-colors text-lg"
+                >
+                  &times;
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 space-y-5 text-sm text-gray-300">
+                {/* Rule 1: Office Hours */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Office Hours Schedule</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] text-gray-500 block mb-1">Start Time</label>
+                      <input 
+                        type="time" 
+                        defaultValue={settings.officeStartTime}
+                        id="input_officeStartTime"
+                        className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-500 block mb-1">End Time</label>
+                      <input 
+                        type="time" 
+                        defaultValue={settings.officeEndTime}
+                        id="input_officeEndTime"
+                        className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rule 2: Room Fully On Settings */}
+                <div className="space-y-3 pt-2 border-t border-[#23354E]/20">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Room Vacancy Check (All ON)</label>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        defaultChecked={settings.roomTimerEnabled}
+                        id="input_roomTimerEnabled"
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3B82F6] peer-checked:after:bg-white"></div>
+                    </label>
+                  </div>
+                  
+                  {/* Hours/Mins Dropdown Pickers */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-gray-500 block">Alert Threshold (Duration)</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[9px] text-gray-600 block mb-0.5">Hours</label>
+                        <select 
+                          id="input_durationHours"
+                          defaultValue={durationHours}
+                          className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6] text-xs"
+                        >
+                          {Array.from({ length: 24 }, (_, i) => (
+                            <option key={i} value={i}>{i} hr{i !== 1 ? 's' : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-gray-600 block mb-0.5">Minutes</label>
+                        <select 
+                          id="input_durationMinutes"
+                          defaultValue={durationMinutes}
+                          className="w-full bg-slate-900 border border-[#23354E] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-[#3B82F6] text-xs"
+                        >
+                          {Array.from({ length: 60 }, (_, i) => (
+                            <option key={i} value={i}>{i} min{i !== 1 ? 's' : ''}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rule 3: Discord Alert Filters */}
+                <div className="space-y-3 pt-2 border-t border-[#23354E]/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Discord Critical Filter</label>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Send only 'Danger' alerts to Discord, suppressing 'Warnings'.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        defaultChecked={settings.discordOnlyDanger}
+                        id="input_discordOnlyDanger"
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3B82F6] peer-checked:after:bg-white"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Rule 4: Auto Simulator Toggle */}
+                <div className="space-y-3 pt-2 border-t border-[#23354E]/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Automated Demonstration</label>
+                      <p className="text-[10px] text-yellow-500/80 mt-0.5">⚠️ Just for demonstration. Turn off to allow 100% manual control only.</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        defaultChecked={settings.autoSimulatorEnabled !== false}
+                        id="input_autoSimulatorEnabled"
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#3B82F6] peer-checked:after:bg-white"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="px-6 py-4 border-t border-[#23354E]/60 bg-slate-900/30 flex justify-end space-x-3">
+                <button 
+                  onClick={() => setShowSettingsModal(false)}
+                  className="px-4 py-2 rounded-lg bg-transparent border border-[#23354E] hover:bg-[#23354E]/50 text-gray-300 transition-colors text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    const officeStartTime = document.getElementById("input_officeStartTime").value || "09:00";
+                    const officeEndTime = document.getElementById("input_officeEndTime").value || "17:00";
+                    const hrs = document.getElementById("input_durationHours").value.padStart(2, '0');
+                    const mins = document.getElementById("input_durationMinutes").value.padStart(2, '0');
+                    const roomAllOnTimeLimit = `${hrs}:${mins}`;
+                    const roomTimerEnabled = document.getElementById("input_roomTimerEnabled").checked;
+                    const discordOnlyDanger = document.getElementById("input_discordOnlyDanger").checked;
+                    const autoSimulatorEnabled = document.getElementById("input_autoSimulatorEnabled").checked;
+                    handleUpdateSettings({
+                      officeStartTime,
+                      officeEndTime,
+                      roomAllOnTimeLimit,
+                      roomTimerEnabled,
+                      discordOnlyDanger,
+                      autoSimulatorEnabled
+                    });
+                  }}
+                  className="px-4 py-2 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-colors text-xs font-bold shadow-[0_0_15px_rgba(59,130,246,0.4)]"
+                >
+                  Save Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

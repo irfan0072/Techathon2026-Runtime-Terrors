@@ -43,12 +43,36 @@ const getDevices = () => devices;
 
 const getDeviceById = (id) => devices.find(d => d.id === id);
 
+const roomAllOnStartTimes = {
+  "Drawing Room": null,
+  "Work Room 1": null,
+  "Work Room 2": null
+};
+
+const getRoomAllOnStartTimes = () => roomAllOnStartTimes;
+
+const updateRoomAllOnTracker = () => {
+  const roomsList = ["Drawing Room", "Work Room 1", "Work Room 2"];
+  roomsList.forEach(room => {
+    const roomDevices = devices.filter(d => d.room === room);
+    const allOn = roomDevices.length > 0 && roomDevices.every(d => d.status === true);
+    if (allOn) {
+      if (!roomAllOnStartTimes[room]) {
+        roomAllOnStartTimes[room] = Date.now();
+      }
+    } else {
+      roomAllOnStartTimes[room] = null;
+    }
+  });
+};
+
 const updateDeviceStatus = (id, status) => {
   const device = getDeviceById(id);
   if (device) {
     if (device.status !== status) {
       device.status = status;
       device.lastChanged = new Date().toISOString();
+      updateRoomAllOnTracker();
       return true; // status changed
     }
   }
@@ -88,6 +112,10 @@ const getEstimatedKWh = () => {
 
 const getAlerts = () => alerts;
 
+const clearAlerts = () => {
+  alerts.length = 0;
+};
+
 const addAlert = (message, severity = "warning") => {
   const alert = {
     id: `alert_${Date.now()}`,
@@ -102,6 +130,23 @@ const addAlert = (message, severity = "warning") => {
   return alert;
 };
 
+// Settings configuration
+const settings = {
+  officeStartTime: "09:00",
+  officeEndTime: "17:00",
+  roomAllOnTimeLimit: "02:00",
+  roomTimerEnabled: true,
+  discordOnlyDanger: false,
+  autoSimulatorEnabled: true
+};
+
+const getSettings = () => settings;
+
+const updateSettings = (newSettings) => {
+  Object.assign(settings, newSettings);
+  return settings;
+};
+
 module.exports = {
   dummyUsers,
   getDevices,
@@ -111,5 +156,9 @@ module.exports = {
   getRoomPowerBreakdown,
   getEstimatedKWh,
   getAlerts,
-  addAlert
+  clearAlerts,
+  addAlert,
+  getSettings,
+  updateSettings,
+  getRoomAllOnStartTimes
 };

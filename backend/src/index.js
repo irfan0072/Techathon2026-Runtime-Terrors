@@ -5,7 +5,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const store = require("./store");
-const { startSimulator } = require("./simulator");
+const { startSimulator, checkAlerts } = require("./simulator");
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -83,6 +83,26 @@ app.get("/api/users", (req, res) => {
   });
 });
 
+// Clear all alerts
+app.post("/api/alerts/clear", (req, res) => {
+  store.clearAlerts();
+  io.emit("alerts_cleared");
+  res.json({ success: true, message: "Alerts cleared successfully" });
+});
+
+// Get settings
+app.get("/api/settings", (req, res) => {
+  res.json({ success: true, settings: store.getSettings() });
+});
+
+// Update settings
+app.post("/api/settings", (req, res) => {
+  const updated = store.updateSettings(req.body);
+  io.emit("settings_updated", updated);
+  res.json({ success: true, settings: updated });
+});
+
+
 // Initialize HTTP Server and Socket.io
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -102,7 +122,8 @@ io.on("connection", (socket) => {
     totalPower: store.getTotalPowerNow(),
     roomBreakdown: store.getRoomPowerBreakdown(),
     estimatedKWh: store.getEstimatedKWh(),
-    alerts: store.getAlerts()
+    alerts: store.getAlerts(),
+    settings: store.getSettings()
   });
 
   // Handle manual toggle requests from the frontend client via WebSockets
@@ -120,8 +141,23 @@ io.on("connection", (socket) => {
           roomBreakdown: store.getRoomPowerBreakdown(),
           estimatedKWh: store.getEstimatedKWh()
         });
+
+        // Instantly run rule-based alert checks on manual updates (Real-time checks)
+        checkAlerts(io, device);
       }
     }
+  });
+
+  // Handle request to clear all alerts
+  socket.on("clear_alerts", () => {
+    store.clearAlerts();
+    io.emit("alerts_cleared");
+  });
+
+  // Handle request to update settings via sockets
+  socket.on("update_settings", (newSettings) => {
+    const updated = store.updateSettings(newSettings);
+    io.emit("settings_updated", updated);
   });
 
   socket.on("disconnect", () => {

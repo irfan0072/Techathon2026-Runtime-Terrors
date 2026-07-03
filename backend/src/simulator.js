@@ -8,6 +8,11 @@ function startSimulator(io) {
 
   // Runs every 7 seconds to toggle random device states
   const simulatorInterval = setInterval(() => {
+    const settings = store.getSettings();
+    if (!settings.autoSimulatorEnabled) {
+      return; // Skip automatic simulation, manual control only
+    }
+
     const devices = store.getDevices();
     
     // Pick a random device
@@ -34,16 +39,62 @@ function startSimulator(io) {
     }
   }, 7000);
 
+  // Run vacancy check interval every 5 seconds (Real-time vacancy alerts)
+  setInterval(() => {
+    const settings = store.getSettings();
+    if (!settings.roomTimerEnabled) return;
+
+    const startTimes = store.getRoomAllOnStartTimes();
+    const now = Date.now();
+
+    const [limitH, limitM] = (settings.roomAllOnTimeLimit || "02:00").split(":").map(Number);
+    const limitMs = (limitH * 60 + limitM) * 60 * 1000;
+
+    Object.entries(startTimes).forEach(([room, startTime]) => {
+      if (startTime) {
+        const elapsedMs = now - startTime;
+        if (elapsedMs >= limitMs) {
+          const existingAlerts = store.getAlerts();
+          // Avoid spamming this specific warning alert within 30 seconds
+          const hasRecentRoomAlert = existingAlerts.some(
+            a => a.message.includes(`all devices in ${room} have been running ON simultaneously`) && 
+            (now - new Date(a.timestamp).getTime() < 30000)
+          );
+
+          if (!hasRecentRoomAlert) {
+            const admin = store.dummyUsers[1]; // Tanvir Hossain
+            const elapsedMins = Math.floor(elapsedMs / 60000);
+            const elapsedSecs = Math.floor((elapsedMs % 60000) / 1000);
+            const timeStr = elapsedMins > 0 ? `${elapsedMins}m ${elapsedSecs}s` : `${elapsedSecs}s`;
+
+            const msg = `[Efficiency Alert] All devices in ${room} have been running ON simultaneously for ${timeStr}. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy. Limit set to ${settings.roomAllOnTimeLimit} (hh:mm).`;
+            const alert = store.addAlert(msg, "danger");
+            io.emit("alert_added", alert);
+          }
+        }
+      }
+    });
+  }, 5000);
+
   return simulatorInterval;
 }
 
 // Check for alerts based on problem statement rules
 function checkAlerts(io, updatedDevice) {
+  const settings = store.getSettings();
   const now = new Date();
   const currentHour = now.getHours();
+  const currentMin = now.getMinutes();
+  const currentTimeVal = currentHour * 60 + currentMin;
+
+  const [startH, startM] = (settings.officeStartTime || "09:00").split(":").map(Number);
+  const startTimeVal = startH * 60 + startM;
+
+  const [endH, endM] = (settings.officeEndTime || "17:00").split(":").map(Number);
+  const endTimeVal = endH * 60 + endM;
   
-  // Alert Rule 1: Devices left on after office hours (Office hours: 9 AM - 5 PM)
-  const isAfterHours = currentHour < 9 || currentHour >= 17;
+  // Alert Rule 1: Devices left on after office hours (Office hours from settings)
+  const isAfterHours = currentTimeVal < startTimeVal || currentTimeVal >= endTimeVal;
   if (isAfterHours && updatedDevice.status === true) {
     const admin = store.dummyUsers[0]; // Nafisa Rahman
     const msg = `[After Hours Alert] ${updatedDevice.room} - ${updatedDevice.name} was turned ON at ${now.toLocaleTimeString()}. Dispatching alert to Admin ${admin.name} (${admin.phone}).`;
@@ -71,7 +122,7 @@ function checkAlerts(io, updatedDevice) {
 
       if (!hasRecentRoomAlert) {
         const admin = store.dummyUsers[1]; // Tanvir Hossain
-        const msg = `[Efficiency Alert] All devices in ${room} are currently running ON simultaneously. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy.`;
+        const msg = `[Efficiency Alert] All devices in ${room} are currently running ON simultaneously. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy. Limit set to ${settings.roomAllOnTimeLimit} (hh:mm).`;
         const alert = store.addAlert(msg, "danger");
         io.emit("alert_added", alert);
       }
@@ -80,5 +131,6 @@ function checkAlerts(io, updatedDevice) {
 }
 
 module.exports = {
-  startSimulator
+  startSimulator,
+  checkAlerts
 };
