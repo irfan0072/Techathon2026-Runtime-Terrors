@@ -351,7 +351,7 @@ export default function App() {
       </header>
 
       {/* NON-STICKY METADATA SUB-HEADER (Scrolls away to save vertical space on mobile) */}
-      <div className="bg-[#111827]/80 border-b border-[#23354E]/30 px-6 py-2.5 flex flex-wrap gap-2 justify-center sm:justify-start items-center text-xs text-gray-400">
+      <div className="bg-[#111827]/80 border-b border-[#23354E]/30 px-6 py-2.5 flex flex-wrap gap-2 justify-center items-center text-xs text-gray-400">
         <a 
           href="https://discord.gg/euFt99ETT" 
           target="_blank" 
