@@ -84,6 +84,11 @@ export default function App() {
       setAlerts(prev => [alert, ...prev].slice(0, 50));
     });
 
+    // Receive alerts cleared event
+    socketInstance.on('alerts_cleared', () => {
+      setAlerts([]);
+    });
+
     // Fetch initial dummy users list
     fetch(`${backendUrl}/api/users`)
       .then(res => res.json())
@@ -103,6 +108,13 @@ export default function App() {
   const handleToggle = (deviceId) => {
     if (socket) {
       socket.emit("toggle_device", deviceId);
+    }
+  };
+
+  // Handle clear alerts
+  const handleClearAlerts = () => {
+    if (socket) {
+      socket.emit("clear_alerts");
     }
   };
 
@@ -449,9 +461,19 @@ export default function App() {
 
           {/* ACTIVE ALERTS LIST */}
           <section className="glass-panel p-6 flex flex-col max-h-[400px]">
-            <h2 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" /> Active System Alerts
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-base font-semibold text-white flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" /> Active System Alerts
+              </h2>
+              {alerts.length > 0 && (
+                <button 
+                  onClick={handleClearAlerts}
+                  className="text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2.5 py-1 rounded-md font-semibold transition-all hover:border-red-500/40"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
             
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
               {alerts.map(alert => (

@@ -88,6 +88,10 @@ const getEstimatedKWh = () => {
 
 const getAlerts = () => alerts;
 
+const clearAlerts = () => {
+  alerts.length = 0;
+};
+
 const addAlert = (message, severity = "warning") => {
   const alert = {
     id: `alert_${Date.now()}`,
@@ -111,5 +115,6 @@ module.exports = {
   getRoomPowerBreakdown,
   getEstimatedKWh,
   getAlerts,
+  clearAlerts,
   addAlert
 };

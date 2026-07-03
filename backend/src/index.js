@@ -83,6 +83,14 @@ app.get("/api/users", (req, res) => {
   });
 });
 
+// Clear all alerts
+app.post("/api/alerts/clear", (req, res) => {
+  store.clearAlerts();
+  io.emit("alerts_cleared");
+  res.json({ success: true, message: "Alerts cleared successfully" });
+});
+
+
 // Initialize HTTP Server and Socket.io
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -122,6 +130,12 @@ io.on("connection", (socket) => {
         });
       }
     }
+  });
+
+  // Handle request to clear all alerts
+  socket.on("clear_alerts", () => {
+    store.clearAlerts();
+    io.emit("alerts_cleared");
   });
 
   socket.on("disconnect", () => {
