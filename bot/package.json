@@ -5,7 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "test-cli": "node src/test_bot_commands.js"
   },
   "dependencies": {
     "axios": "^1.7.2",
