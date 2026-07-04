@@ -39,41 +39,72 @@ function startSimulator(io) {
     }
   }, 7000);
 
-  // Run vacancy check interval every 5 seconds (Real-time vacancy alerts)
+  // Run vacancy & after-hours background checks every 5 seconds
   setInterval(() => {
     const settings = store.getSettings();
-    if (!settings.roomTimerEnabled) return;
-
-    const startTimes = store.getRoomAllOnStartTimes();
     const now = Date.now();
+    const { hour: currentHour, min: currentMin, timeString } = getDhakaTime();
+    const currentTimeVal = currentHour * 60 + currentMin;
 
-    const [limitH, limitM] = (settings.roomAllOnTimeLimit || "02:00").split(":").map(Number);
-    const limitMs = (limitH * 60 + limitM) * 60 * 1000;
+    const [startH, startM] = (settings.officeStartTime || "09:00").split(":").map(Number);
+    const startTimeVal = startH * 60 + startM;
 
-    Object.entries(startTimes).forEach(([room, startTime]) => {
-      if (startTime) {
-        const elapsedMs = now - startTime;
-        if (elapsedMs >= limitMs) {
+    const [endH, endM] = (settings.officeEndTime || "17:00").split(":").map(Number);
+    const endTimeVal = endH * 60 + endM;
+
+    const isAfterHours = currentTimeVal < startTimeVal || currentTimeVal >= endTimeVal;
+
+    // Rule 1: Periodic warning for devices left ON after-hours
+    if (isAfterHours) {
+      const devices = store.getDevices();
+      devices.forEach(d => {
+        if (d.status === true) {
           const existingAlerts = store.getAlerts();
-          // Avoid spamming this specific warning alert within 30 seconds
-          const hasRecentRoomAlert = existingAlerts.some(
-            a => a.message.includes(`all devices in ${room} have been running ON simultaneously`) && 
-            (now - new Date(a.timestamp).getTime() < 30000)
+          const hasRecent = existingAlerts.some(
+            a => a.message.includes(`${d.room} - ${d.name} is running outside office hours`) &&
+            (now - new Date(a.timestamp).getTime() < 600000) // Prevent warning spam within 10 minutes
           );
 
-          if (!hasRecentRoomAlert) {
-            const admin = store.dummyUsers[1]; // Tanvir Hossain
-            const elapsedMins = Math.floor(elapsedMs / 60000);
-            const elapsedSecs = Math.floor((elapsedMs % 60000) / 1000);
-            const timeStr = elapsedMins > 0 ? `${elapsedMins}m ${elapsedSecs}s` : `${elapsedSecs}s`;
-
-            const msg = `[Efficiency Alert] All devices in ${room} have been running ON simultaneously for ${timeStr}. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy. Limit set to ${settings.roomAllOnTimeLimit} (hh:mm).`;
-            const alert = store.addAlert(msg, "danger");
+          if (!hasRecent) {
+            const admin = store.dummyUsers[0]; // Nafisa Rahman
+            const msg = `[After Hours Alert] ${d.room} - ${d.name} is running outside office hours (${settings.officeStartTime} - ${settings.officeEndTime}). Notifying Admin ${admin.name} (${admin.phone}).`;
+            const alert = store.addAlert(msg, "warning");
             io.emit("alert_added", alert);
           }
         }
-      }
-    });
+      });
+    }
+
+    // Rule 2: Room vacancy check (all devices ON for more than threshold)
+    if (settings.roomTimerEnabled) {
+      const startTimes = store.getRoomAllOnStartTimes();
+      const [limitH, limitM] = (settings.roomAllOnTimeLimit || "02:00").split(":").map(Number);
+      const limitMs = (limitH * 60 + limitM) * 60 * 1000;
+
+      Object.entries(startTimes).forEach(([room, startTime]) => {
+        if (startTime) {
+          const elapsedMs = now - startTime;
+          if (elapsedMs >= limitMs) {
+            const existingAlerts = store.getAlerts();
+            const hasRecentRoomAlert = existingAlerts.some(
+              a => a.message.includes(`all devices in ${room} have been running ON simultaneously`) && 
+              (now - new Date(a.timestamp).getTime() < 30000)
+            );
+
+            if (!hasRecentRoomAlert) {
+              const admin = store.dummyUsers[1]; // Tanvir Hossain
+              const elapsedMins = Math.floor(elapsedMs / 60000);
+              const elapsedSecs = Math.floor((elapsedMs % 60000) / 1000);
+              const timeStr = elapsedMins > 0 ? `${elapsedMins}m ${elapsedSecs}s` : `${elapsedSecs}s`;
+
+              const msg = `[Efficiency Alert] All devices in ${room} have been running ON simultaneously for ${timeStr}. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy. Limit set to ${settings.roomAllOnTimeLimit} (hh:mm).`;
+              const alert = store.addAlert(msg, "danger");
+              io.emit("alert_added", alert);
+            }
+          }
+        }
+      });
+    }
   }, 5000);
 
   return simulatorInterval;
@@ -132,32 +163,6 @@ function checkAlerts(io, updatedDevice) {
       io.emit("alert_added", alert);
     }
   }
-
-  // Alert Rule 2: A room where all devices are on
-  // Let's check each room to see if all 5 devices in it are currently ON
-  const rooms = ["Drawing Room", "Work Room 1", "Work Room 2"];
-  const devices = store.getDevices();
-
-  rooms.forEach(room => {
-    const roomDevices = devices.filter(d => d.room === room);
-    const allOn = roomDevices.every(d => d.status === true);
-    
-    if (allOn) {
-      // Check if we already have an active alert for this room recently to avoid spamming
-      const existingAlerts = store.getAlerts();
-      const hasRecentRoomAlert = existingAlerts.some(
-        a => a.message.includes(`all devices in ${room}`) && 
-        (Date.now() - new Date(a.timestamp).getTime() < 30000) // 30 second threshold
-      );
-
-      if (!hasRecentRoomAlert) {
-        const admin = store.dummyUsers[1]; // Tanvir Hossain
-        const msg = `[Efficiency Alert] All devices in ${room} are currently running ON simultaneously. Notifying Admin ${admin.name} (${admin.phone}) to check for vacancy. Limit set to ${settings.roomAllOnTimeLimit} (hh:mm).`;
-        const alert = store.addAlert(msg, "danger");
-        io.emit("alert_added", alert);
-      }
-    }
-  });
 }
 
 module.exports = {
