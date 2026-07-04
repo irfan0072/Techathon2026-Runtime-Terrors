@@ -1,59 +1,84 @@
-# Hardware/Electrical Schematic Reference (Wokwi ESP32 Setup)
+# ⚡ Hardware Control System & Circuit Schematic Mappings
 
-This document provides instructions on how to design and wire the hardware control system in **Wokwi** or **Tinkercad**. To keep things simple and readable, you do not need to wire all 18 devices; a representative circuit for one room (e.g., Drawing Room: 2 fans, 3 lights) is sufficient.
+This document details the hardware design, pinout lists, and electrical schematics for the **Smart Office Monitoring System** physical interface prototype.
+
+---
+
+## 🔗 Live Tinkercad Board Simulation
+* **Interactive Tinkercad Design**: [Tinkercad Circuits Board Simulator Link](https://www.tinkercad.com/things/einAtGABmEy/editel?returnTo=%2Fdashboard&sharecode=9LEbM-ddvtuEevOx3uDI34FDEFHuSLfaDcYNqvMKAhw)
+
+---
 
 ## 1. System Overview
 
-We will use an **ESP32 microcontroller** as our central controller. Since fans and lights run on mains AC voltages (e.g., 220V) in real life, a low-voltage microcontroller cannot power them directly. Instead, we use an **Active-Low or Active-High 5V Relay Module** acting as switches.
-- **Microcontroller**: ESP32 (38-pin version).
-- **Relay Modules**: 5-Channel Relay Board (or five separate Single-Channel Relays).
-- **Actuators/Outputs**: 
-  - **Fans**: Represented by **DC Motors** or **LEDs** (blue/green) in Wokwi.
-  - **Lights**: Represented by **LEDs** (yellow) in Wokwi.
-- **Power**: 
-  - ESP32 is powered via Micro-USB (5V).
-  - Relay module coils are powered from the ESP32's `VIN` (5V) pin.
-  - LEDs/motors use external power or breadboard rails.
+To represent the hardware implementation, we simulate **one full room** containing:
+* **3 Lights**: Represented by **3 Red LEDs** (anodes mapped to GPIO pins).
+* **2 Fans**: Represented by **2 DC Motors** (representing fan output states).
+* **5 Slide Switches**: Acting as manual local overrides to turn items ON/OFF physically.
+* **1 I2C 16x2 LCD Display**: Outputs real-time power metrics and active device counts.
+* **Controller**: Arduino Uno / ESP32 microcontroller.
 
 ---
 
-## 2. Pin Mapping Table
+## 2. Arduino Pinout Mapping
 
-| Device Name | Device Type | ESP32 GPIO Pin | Relay Channel | Indicator Color (Wokwi LED) | Description |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Fan 1** | Fan | **GPIO 12** | Channel 1 | Blue | Fan 1 toggle relay control |
-| **Fan 2** | Fan | **GPIO 14** | Channel 2 | Blue | Fan 2 toggle relay control |
-| **Light 1** | Light | **GPIO 27** | Channel 3 | Yellow | Light 1 toggle relay control |
-| **Light 2** | Light | **GPIO 26** | Channel 4 | Yellow | Light 2 toggle relay control |
-| **Light 3** | Light | **GPIO 25** | Channel 5 | Yellow | Light 3 toggle relay control |
-
----
-
-## 3. Connection List (Step-by-Step Wiring)
-
-### Power Connections
-1. Connect ESP32 `GND` to the Breadboard `-` (GND) rail.
-2. Connect ESP32 `VIN` (which outputs 5V from USB) to the Breadboard `+` (5V) rail.
-3. Connect the Relay Module's `VCC` pin to the Breadboard `+` (5V) rail.
-4. Connect the Relay Module's `GND` pin to the Breadboard `-` (GND) rail.
-
-### Control Signals
-1. Connect ESP32 pin `G12` to Relay Input `IN1`.
-2. Connect ESP32 pin `G14` to Relay Input `IN2`.
-3. Connect ESP32 pin `G27` to Relay Input `IN3`.
-4. Connect ESP32 pin `G26` to Relay Input `IN4`.
-5. Connect ESP32 pin `G25` to Relay Input `IN5`.
-
-### Load (LED / Motor) Connections
-For each of the 5 channels on the Relay:
-1. Connect the Relay's **Common (COM)** terminal to the anode (longer leg) of the corresponding LED/Motor through a **220Ω Current Limiting Resistor**.
-2. Connect the Relay's **Normally Open (NO)** terminal to the Breadboard `+` (5V) rail.
-3. Connect the cathode (shorter leg) of each LED to the Breadboard `-` (GND) rail.
+| Device Name | Device Type | Microcontroller Pin | Relay/Switch Channel | Indicator Component | Description |
+| :--- | :--- | :--- | :---: | :--- | :--- |
+| **Fan 1** | Fan | **Pin D9** | Pin D3 (Switch) | DC Motor 1 | Fan 1 output state |
+| **Fan 2** | Fan | **Pin D10** | Pin D4 (Switch) | DC Motor 2 | Fan 2 output state |
+| **Light 1** | Light | **Pin D11** | Pin D5 (Switch) | Red LED 1 | Light 1 output state |
+| **Light 2** | Light | **Pin D12** | Pin D6 (Switch) | Red LED 2 | Light 2 output state |
+| **Light 3** | Light | **Pin D13** | Pin D7 (Switch) | Red LED 3 | Light 3 output state |
+| **LCD SDA** | Display | **Pin A4** | - | 16x2 LCD | I2C Data line |
+| **LCD SCL** | Display | **Pin A5** | - | 16x2 LCD | I2C Clock line |
 
 ---
 
-## 4. Electrical Reasoning
+## 3. Step-by-Step Connection List
 
-1. **Isolation**: Microcontrollers operate at 3.3V/5V logic, which is too low to drive relays directly if the coils draw too much current. Using opto-isolated relay boards prevents back-EMF (Electromagnetic Interference) spikes from damaging the ESP32 pins.
-2. **Normally Open (NO) vs Normally Closed (NC)**: We wire the LEDs to the Normally Open terminal. This ensures that if the microcontroller loses power or restarts, the relays will default to open (OFF), ensuring safety (fail-safe status).
-3. **Resistors**: Standard Wokwi LEDs will burn out if connected directly to 5V. The **220Ω resistor** limits the forward current to approximately 10–15mA, which is safe and provides good brightness.
+### Power Rails
+1. Connect the Arduino `5V` pin to the breadboard `+` positive power rail.
+2. Connect the Arduino `GND` pin to the breadboard `-` negative ground rail.
+3. Wire the VCC pins of the 16x2 LCD and switch rails to the `5V` rail, and ground pins to the `GND` rail.
+
+### Manual Slide Switches (Local Overrides)
+1. Wire the center terminal (common) of switches `S1` to `S5` to digital pins `D3`, `D4`, `D5`, `D6`, and `D7`.
+2. Connect one outer terminal of each switch to the breadboard `-` (GND) rail.
+3. In code, configure these input pins as `INPUT_PULLUP`. Toggling the switch pulls the pin `LOW` (GND), and open states default to `HIGH`.
+
+### LEDs (Lights)
+1. Connect pins `D11`, `D12`, and `D13` to the anodes (longer legs) of Red LEDs `L1`, `L2`, and `L3`.
+2. Connect the cathodes (shorter legs) to the ground rail through a **220Ω Current Limiting Resistor**.
+
+### DC Motors (Fans)
+1. Connect pins `D9` and `D10` to the positive terminals of DC Motors `M1` and `M2`.
+2. Connect the negative terminals to the ground rail.
+
+---
+
+## ⚠️ Critical Electrical Driver Safety Review
+
+While direct connection of DC motors to digital microcontroller output pins functions in Tinkercad's logic engine, **this must NOT be built in real life without drivers**:
+
+1. **Overcurrent Hazard**: An Arduino digital output pin can source a maximum of **40mA** (20mA recommended). A physical DC motor draws **100mA to 2A** depending on the load. Sourcing this directly will burn out the ATmega328P chip.
+2. **Back-EMF Spikes**: Inductive loads like DC motors store energy in their magnetic fields. Turning them OFF creates massive negative voltage spikes (flyback voltage) that can fry digital pins.
+
+### 🛡️ Real-World Safe Driver Solution:
+To make the circuit safe for physical assembly, wire the DC motors using NPN Transistors (or N-Channel MOSFETs) as switches and include a flyback diode:
+
+```text
+    +5V Rail -----------------------------+
+                                          |
+                                      [DC Motor]
+                                          |      diode (1N4007) parallel
+                                          +-----|<|----+ (pointing to +5V)
+                                          |
+                                   (C) Collector
+  Arduino Pin ---> [ 1kΩ Resistor ] --(B) Base  (PN2222 Transistor)
+                                   (E) Emitter
+                                          |
+    GND Rail -----------------------------+
+```
+* **Transistor (e.g., PN2222 NPN BJT)**: Safely handles the high motor load current.
+* **1kΩ Base Resistor**: Limits base current from the Arduino digital output pin to `~5mA`.
+* **Flyback Diode (e.g., 1N4007)**: Placed in parallel with the motor terminals to absorb inductive voltage spikes safely.
