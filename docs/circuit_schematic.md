@@ -6,7 +6,7 @@ This document details the hardware design, pinout lists, and electrical schemati
 
 ## 🎨 Visual Hardware Circuit Schematic
 
-![Circuit Schematic](circuit_schematic.jpg)
+![Circuit Schematic](circuit_schematic.jpg.png)
 
 ---
 
