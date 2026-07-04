@@ -44,7 +44,7 @@ async function queryLLM(promptText, systemInstruction = "") {
     }
   }
 
-  // 2. Failover to OpenRouter (Free Llama 3.1 8B Model)
+  // 2. Failover to OpenRouter (Dynamic Free Model Router)
   if (OPENROUTER_API_KEY) {
     try {
       const messages = [];
@@ -56,13 +56,15 @@ async function queryLLM(promptText, systemInstruction = "") {
       const response = await axios.post(
         "https://openrouter.ai/api/v1/chat/completions",
         {
-          model: "meta-llama/llama-3.1-8b-instruct:free",
+          model: "openrouter/free",
           messages: messages
         },
         {
           headers: {
             "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://teckathon-dashboard.onrender.com",
+            "X-Title": "SmartOffice"
           },
           timeout: 7000
         }
