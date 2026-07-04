@@ -19,6 +19,7 @@ Welcome to the codebase for the **Smart Office Power and Device Monitoring Syste
 * **Irfan** (Team Lead) – Web Dashboard, Real-time APIs, & Database Engineering
 * **Farhad** – Hardware Circuit Schematics & Tinkercad Simulation
 * **Tanjimul** – Discord Bot, Gemini NLU Logic, & AI Systems
+* **Shanto** – Software Quality Assurance (SQA) & System Verification
 
 ---
 
