@@ -317,6 +317,23 @@ client.on("messageCreate", async (message) => {
 
   // If message doesn't start with prefix, output help buttons menu for ease of use
   if (!message.content.startsWith(PREFIX)) {
+    // 0. Check for conversational log clearing/purge intent
+    const cleanMsg = message.content.toLowerCase().trim();
+    if (cleanMsg.includes("clear chat") || cleanMsg.includes("clean messages") || cleanMsg.includes("delete logs") || cleanMsg.includes("clear bot") || cleanMsg.includes("clear discord")) {
+      if (message.guild) {
+        try {
+          const deleted = await message.channel.bulkDelete(50, true);
+          const confirm = await message.channel.send(`🧹 Live Office Log Cleaned! Cleared ${deleted.size} messages.`);
+          setTimeout(() => confirm.delete().catch(() => {}), 5000);
+        } catch (err) {
+          await message.reply("⚠️ Failed to clear chat. Ensure I have the 'Manage Messages' permission.");
+        }
+      } else {
+        await message.reply("This can only be executed within server text channels.");
+      }
+      return;
+    }
+
     // If the boss sends a random conversational text, we can use Gemini to converse with them back!
     if (GEMINI_API_KEY) {
       try {
@@ -546,8 +563,29 @@ Instructions:
   
   // COMMAND: !help
   else if (command === "help") {
-    const helpMsg = `🤖 **SmartOffice Command Center**\nClick the shortcut buttons below or type any commands:\n• \`!status\`\n• \`!room <drawing|work 1|work 2>\`\n• \`!usage\``;
+    const helpMsg = `🤖 **SmartOffice Command Center**\nClick the shortcut buttons below or type any commands:\n• \`!status\`\n• \`!room <drawing|work 1|work 2>\`\n• \`!usage\`\n• \`!clear <number>\``;
     await message.reply({ content: helpMsg, components: getShortcutButtons() });
+  }
+
+  // COMMAND: !clear / !purge
+  else if (command === "clear" || command === "purge") {
+    if (!message.guild) {
+      return message.reply("This command can only be used inside server channels.");
+    }
+    
+    const amount = parseInt(args[0], 10) || 50;
+    if (isNaN(amount) || amount < 1 || amount > 100) {
+      return message.reply("Please provide a number between 1 and 100 of messages to clear.");
+    }
+
+    try {
+      const deleted = await message.channel.bulkDelete(amount, true);
+      const replyMsg = await message.channel.send(`🧹 Successfully cleared ${deleted.size} messages!`);
+      setTimeout(() => replyMsg.delete().catch(() => {}), 5000);
+    } catch (err) {
+      console.error("[Bot] Error clearing messages:", err.message);
+      await message.reply("⚠️ Failed to clear messages. Ensure the bot has 'Manage Messages' permission.");
+    }
   }
 });
 

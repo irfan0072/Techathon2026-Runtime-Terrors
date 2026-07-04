@@ -205,8 +205,19 @@ export default function App() {
     }
   };
 
-  // Handle clear alerts
-  const handleClearAlerts = () => {
+  // Handle clear alerts with instant local feedback and REST fallback
+  const handleClearAlerts = async () => {
+    // 1. Instant local visual feedback
+    setAlerts([]);
+
+    // 2. Clear backend store via REST API
+    try {
+      await fetch(`${backendUrl}/api/alerts/clear`, { method: "POST" });
+    } catch (err) {
+      console.error("Error clearing alerts via REST:", err);
+    }
+
+    // 3. Emit socket event to clear other concurrent tabs
     if (socket) {
       socket.emit("clear_alerts");
     }
