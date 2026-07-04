@@ -4,6 +4,12 @@ This document details the hardware design, pinout lists, and electrical schemati
 
 ---
 
+## 🎨 Visual Hardware Circuit Schematic
+
+![Circuit Schematic](circuit_schematic.jpg)
+
+---
+
 ## 🔗 Live Tinkercad Board Simulation
 * **Interactive Tinkercad Design**: [Tinkercad Circuits Board Simulator Link](https://www.tinkercad.com/things/einAtGABmEy/editel?returnTo=%2Fdashboard&sharecode=9LEbM-ddvtuEevOx3uDI34FDEFHuSLfaDcYNqvMKAhw)
 

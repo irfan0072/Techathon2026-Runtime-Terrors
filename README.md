@@ -60,7 +60,7 @@ teckathon/
 * **Interactive Floor Plan (Top View)**: Responsive glassmorphic layout displaying 15 devices across 3 rooms. Spins fan SVGs when active, glows lights neon-yellow, and supports click-to-toggle manual overrides.
 * **Custom SVG Load Analysis Chart**: Interactive time-series area chart with glowing gradients. Enables filtering by room/device group (fans vs. lights) and supports viewing a **Last 24 Hours** hourly peak-trough curve.
 * **Simulator Control Switch**: Enable/disable the background simulator in settings to allow 100% manual control during presentations.
-* **Secure Login Gateway**: Lock screen overlay preventing random access. Demo credentials are pre-filled (`admin@smartoffice.com` / `adminpassword123`) for grading ease.
+* **Secure Login Gateway**: Lock screen overlay preventing random access. Demo credentials are pre-filled (`admin@smartoffice.com` / `adminpassword123`) for grading ease. *(Note: Storing credentials in frontend client source is done intentionally to simplify grading access for the Techathon evaluation team, and would be moved to secure backend cookies/sessions in a production deploy).*
 * **Multi-Client State Sync & Cooldowns**: Forces alerts lists to sync across tabs via socket signals, incorporating a 20-second clear cooldown to prevent instant notification spam.
 
 ### 2. Grounded Discord Bot
@@ -101,3 +101,39 @@ Alternatively, run individual services from the root:
 * **Backend API**: `npm run backend` (Ports: `3001` REST/WebSocket)
 * **Vite Dashboard**: `npm run frontend` (Port: `5173` Local Web)
 * **Discord Bot client**: `npm run bot`
+
+---
+
+## 🎬 Video Demonstration
+* **Project Walkthrough Video (3 Min Max)**: [Watch our Live Demo on YouTube](https://youtu.be/your_placeholder_link) *(Ensure this is updated before submission)*
+
+---
+
+## 🚀 Render Cloud Deployment Guidelines
+
+This monorepo is fully configured for deployment on [Render](https://render.com). Deploy the services using the following parameters:
+
+### 1. Backend Web Service (`teckathon-backend`)
+* **Service Type**: Web Service
+* **Build Command**: `npm install`
+* **Start Command**: `npm run backend`
+* **Environment Variables**:
+  * `PORT` = `3001`
+  * `NODE_ENV` = `production`
+
+### 2. Frontend React Dashboard (`teckathon-dashboard`)
+* **Service Type**: Static Site (or Web Service if running with server-side proxy)
+* **Build Command**: `cd frontend && npm install && npm run build`
+* **Publish Directory**: `frontend/dist`
+* **Environment Variables**:
+  * `VITE_BACKEND_URL` = `https://teckathon-backend.onrender.com`
+
+### 3. Discord Bot Worker (`teckathon-bot`)
+* **Service Type**: Background Worker (or Web Service if keeping port listener active)
+* **Build Command**: `npm install`
+* **Start Command**: `npm run bot`
+* **Environment Variables**:
+  * `DISCORD_TOKEN` = `[Your Discord Bot Token]`
+  * `ALERTS_CHANNEL_ID` = `[Your Discord Alerts Channel ID]`
+  * `GEMINI_API_KEY` = `[Your Google Gemini API Key]`
+  * `BACKEND_URL` = `https://teckathon-backend.onrender.com`

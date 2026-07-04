@@ -4,6 +4,12 @@ This document details the software architecture, data flow paths, and communicat
 
 ---
 
+## 🎨 Visual System Architecture Diagram
+
+![System Diagram](system_diagram.jpg)
+
+---
+
 ## 🔗 Live Deployments Reference
 * **Frontend Application**: [teckathon-dashboard.onrender.com](https://teckathon-dashboard.onrender.com)
 * **Backend WebSocket/REST Server**: [teckathon-backend.onrender.com](https://teckathon-backend.onrender.com)
