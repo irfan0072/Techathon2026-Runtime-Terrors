@@ -440,6 +440,9 @@ export default function App() {
 
           </section>
 
+          {/* REAL-TIME LOAD ANALYSIS CHART */}
+          <LoadAnalysisChart devices={devices} totalPower={totalPower} />
+
           {/* INTERACTIVE OFFICE FLOOR PLAN (SVG & ANIMATIONS) */}
           <section className="glass-panel p-6">
             <div className="flex justify-between items-center mb-4">
@@ -928,6 +931,295 @@ export default function App() {
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+// Custom SVG Area Chart Component for Time-Series Load Analysis
+function LoadAnalysisChart({ devices, totalPower }) {
+  const [filterSource, setFilterSource] = useState('overall'); // 'overall', 'drawing', 'work1', 'work2', 'fans', 'lights'
+  const [limitPoints, setLimitPoints] = useState(15);
+  
+  // History logs state
+  const [history, setHistory] = useState(() => {
+    // Generate realistic starting history logs so the chart is populated on load
+    const now = Date.now();
+    const data = [];
+    for (let i = 20; i >= 0; i--) {
+      const timeStr = new Date(now - i * 30000).toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      });
+      // Generate some dummy load numbers
+      const baseOverall = 60 + Math.floor(Math.random() * 90);
+      data.push({
+        time: timeStr,
+        overall: baseOverall,
+        drawing: Math.floor(baseOverall * 0.2),
+        work1: Math.floor(baseOverall * 0.4),
+        work2: Math.floor(baseOverall * 0.4),
+        fans: Math.floor(baseOverall * 0.65),
+        lights: Math.floor(baseOverall * 0.35)
+      });
+    }
+    return data;
+  });
+
+  // Append new data point on updates
+  useEffect(() => {
+    const timeStr = new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+
+    const drawing = devices
+      .filter(d => d.room === "Drawing Room" && d.status)
+      .reduce((sum, d) => sum + d.powerDraw, 0);
+    const work1 = devices
+      .filter(d => d.room === "Work Room 1" && d.status)
+      .reduce((sum, d) => sum + d.powerDraw, 0);
+    const work2 = devices
+      .filter(d => d.room === "Work Room 2" && d.status)
+      .reduce((sum, d) => sum + d.powerDraw, 0);
+      
+    const fans = devices
+      .filter(d => d.type === "fan" && d.status)
+      .reduce((sum, d) => sum + d.powerDraw, 0);
+    const lights = devices
+      .filter(d => d.type === "light" && d.status)
+      .reduce((sum, d) => sum + d.powerDraw, 0);
+
+    const newPoint = {
+      time: timeStr,
+      overall: totalPower,
+      drawing,
+      work1,
+      work2,
+      fans,
+      lights
+    };
+
+    setHistory(prev => {
+      // Keep up to 50 points in memory
+      const next = [...prev, newPoint];
+      if (next.length > 55) next.shift();
+      return next;
+    });
+  }, [devices, totalPower]);
+
+  // Slice history based on user selection
+  const activeData = history.slice(-limitPoints);
+
+  // Extract selected field based on filterSource
+  const values = activeData.map(d => d[filterSource]);
+  const maxValue = Math.max(...values, 100); // minimum scale height is 100W
+
+  // Build SVG Path
+  const width = 500;
+  const height = 150;
+  const paddingLeft = 40;
+  const paddingRight = 10;
+  const paddingTop = 15;
+  const paddingBottom = 25;
+
+  const chartWidth = width - paddingLeft - paddingRight;
+  const chartHeight = height - paddingTop - paddingBottom;
+
+  // Calculate coordinates
+  const points = activeData.map((d, index) => {
+    const val = d[filterSource];
+    const x = paddingLeft + (index / (activeData.length - 1)) * chartWidth;
+    const y = paddingTop + chartHeight - (val / maxValue) * chartHeight;
+    return { x, y, value: val, time: d.time };
+  });
+
+  // Path data string
+  let pathD = "";
+  let areaD = "";
+  if (points.length > 0) {
+    pathD = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(" ");
+    areaD = pathD + ` L ${points[points.length - 1].x} ${paddingTop + chartHeight} L ${points[0].x} ${paddingTop + chartHeight} Z`;
+  }
+
+  // Color scheme based on filterSource
+  const getColor = () => {
+    switch (filterSource) {
+      case 'overall': return { line: '#3B82F6', area: 'url(#gradient-blue)', dot: '#3B82F6' };
+      case 'drawing': return { line: '#A855F7', area: 'url(#gradient-purple)', dot: '#A855F7' };
+      case 'work1': return { line: '#10B981', area: 'url(#gradient-emerald)', dot: '#10B981' };
+      case 'work2': return { line: '#F59E0B', area: 'url(#gradient-amber)', dot: '#F59E0B' };
+      case 'fans': return { line: '#06B6D4', area: 'url(#gradient-cyan)', dot: '#06B6D4' };
+      case 'lights': return { line: '#EC4899', area: 'url(#gradient-pink)', dot: '#EC4899' };
+      default: return { line: '#3B82F6', area: 'url(#gradient-blue)', dot: '#3B82F6' };
+    }
+  };
+
+  const currentColors = getColor();
+
+  return (
+    <div className="glass-panel p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <div>
+          <h2 className="text-base font-semibold text-white flex items-center gap-2">
+            <Activity className="h-4 w-4 text-emerald-400" /> Power Load Analysis (Time-Series)
+          </h2>
+          <p className="text-xs text-gray-400">Analyze real-time power fluctuations across rooms & device groups</p>
+        </div>
+
+        {/* Filters and Limiters */}
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Source Filter Selector */}
+          <select
+            value={filterSource}
+            onChange={(e) => setFilterSource(e.target.value)}
+            className="bg-slate-900 border border-[#23354E] rounded-lg px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-[#3B82F6]"
+          >
+            <option value="overall">Overall Load</option>
+            <option value="drawing">Drawing Room</option>
+            <option value="work1">Work Room 1</option>
+            <option value="work2">Work Room 2</option>
+            <option value="fans">Fans Only</option>
+            <option value="lights">Lights Only</option>
+          </select>
+
+          {/* Points Limiter */}
+          <select
+            value={limitPoints}
+            onChange={(e) => setLimitPoints(parseInt(e.target.value, 10))}
+            className="bg-slate-900 border border-[#23354E] rounded-lg px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-[#3B82F6]"
+          >
+            <option value={10}>Last 10 updates</option>
+            <option value={15}>Last 15 updates</option>
+            <option value={25}>Last 25 updates</option>
+            <option value={50}>Last 50 updates</option>
+          </select>
+        </div>
+      </div>
+
+      {/* SVG Responsive Chart Viewport */}
+      <div className="w-full bg-slate-950/80 rounded-xl p-3 border border-[#23354E]/60 relative overflow-hidden">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible select-none">
+          <defs>
+            {/* Gradients */}
+            <linearGradient id="gradient-blue" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="gradient-purple" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#A855F7" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#A855F7" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="gradient-emerald" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10B981" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="gradient-amber" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#F59E0B" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="gradient-cyan" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#06B6D4" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="gradient-pink" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#EC4899" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#EC4899" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {/* Grid lines (horizontal) */}
+          {[0, 0.25, 0.5, 0.75, 1].map((r, i) => {
+            const y = paddingTop + chartHeight * r;
+            const valLabel = Math.round(maxValue * (1 - r));
+            return (
+              <g key={i} className="opacity-20">
+                <line
+                  x1={paddingLeft}
+                  y1={y}
+                  x2={width - paddingRight}
+                  y2={y}
+                  stroke="#23354E"
+                  strokeWidth="1"
+                  strokeDasharray="2,2"
+                />
+                <text
+                  x={paddingLeft - 8}
+                  y={y + 3}
+                  textAnchor="end"
+                  fill="#94A3B8"
+                  className="text-[9px] font-mono"
+                >
+                  {valLabel}W
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Path Line and Filled Area */}
+          {points.length > 0 && (
+            <g key={filterSource}>
+              <path
+                d={areaD}
+                fill={currentColors.area}
+              />
+              <path
+                d={pathD}
+                fill="none"
+                stroke={currentColors.line}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="drop-shadow-[0_2px_8px_rgba(59,130,246,0.3)]"
+              />
+            </g>
+          )}
+
+          {/* Dynamic Interactive Dots and Labels */}
+          {points.map((p, index) => {
+            // Show labels for endpoints and middle point
+            const showLabel = index === points.length - 1 || index === 0 || (points.length > 10 && index === Math.floor(points.length / 2));
+            return (
+              <g key={`${index}-${p.value}`}>
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r="3.5"
+                  fill="#0B0F19"
+                  stroke={currentColors.dot}
+                  strokeWidth="2"
+                  className="transition-all hover:r-5 cursor-pointer"
+                />
+                {showLabel && (
+                  <g>
+                    <text
+                      x={p.x}
+                      y={p.y - 8}
+                      textAnchor="middle"
+                      fill="#FFF"
+                      className="text-[9px] font-bold font-mono"
+                    >
+                      {p.value}W
+                    </text>
+                    <text
+                      x={p.x}
+                      y={paddingTop + chartHeight + 14}
+                      textAnchor="middle"
+                      fill="#64748B"
+                      className="text-[8px] font-mono"
+                    >
+                      {p.time.slice(-8)}
+                    </text>
+                  </g>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
     </div>
   );
 }
