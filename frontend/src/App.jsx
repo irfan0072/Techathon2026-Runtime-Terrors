@@ -183,6 +183,11 @@ export default function App() {
       setAlerts(syncedAlerts);
     });
 
+    // Listen for dynamic administrators updates
+    socketInstance.on('users_updated', (updatedUsers) => {
+      setUsers(updatedUsers);
+    });
+
     // Fetch initial dummy users list
     fetch(`${backendUrl}/api/users`)
       .then(res => res.json())
@@ -909,6 +914,62 @@ export default function App() {
                     </label>
                   </div>
                 </div>
+
+                {/* Edit Office Administrators */}
+                <div className="space-y-3 pt-3 border-t border-[#23354E]/20">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#3B82F6] block">🧑‍💼 Edit Office Administrators</label>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Customize administrator contact names and phone numbers used in warning alerts.</p>
+                  
+                  {/* Admin 1 */}
+                  <div className="bg-[#0B1528]/50 p-2.5 rounded-lg border border-[#23354E]/30 space-y-2">
+                    <span className="text-[9px] font-bold text-gray-400 block uppercase">Administrator 1</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[8px] text-gray-500 uppercase block mb-0.5">Name</label>
+                        <input 
+                          type="text" 
+                          id="input_user1_name"
+                          defaultValue={users[0]?.name || "Nafisa Rahman"}
+                          className="w-full bg-[#0E1B30] border border-[#23354E] rounded px-1.5 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-[#3B82F6]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] text-gray-500 uppercase block mb-0.5">Phone</label>
+                        <input 
+                          type="text" 
+                          id="input_user1_phone"
+                          defaultValue={users[0]?.phone || "+8801812345678"}
+                          className="w-full bg-[#0E1B30] border border-[#23354E] rounded px-1.5 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-[#3B82F6]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Admin 2 */}
+                  <div className="bg-[#0B1528]/50 p-2.5 rounded-lg border border-[#23354E]/30 space-y-2">
+                    <span className="text-[9px] font-bold text-gray-400 block uppercase">Administrator 2</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[8px] text-gray-500 uppercase block mb-0.5">Name</label>
+                        <input 
+                          type="text" 
+                          id="input_user2_name"
+                          defaultValue={users[1]?.name || "Tanvir Hossain"}
+                          className="w-full bg-[#0E1B30] border border-[#23354E] rounded px-1.5 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-[#3B82F6]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[8px] text-gray-500 uppercase block mb-0.5">Phone</label>
+                        <input 
+                          type="text" 
+                          id="input_user2_phone"
+                          defaultValue={users[1]?.phone || "+8801912345678"}
+                          className="w-full bg-[#0E1B30] border border-[#23354E] rounded px-1.5 py-0.5 text-xs text-gray-200 focus:outline-none focus:border-[#3B82F6]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Footer Buttons */}
@@ -929,6 +990,8 @@ export default function App() {
                     const roomTimerEnabled = document.getElementById("input_roomTimerEnabled").checked;
                     const discordOnlyDanger = document.getElementById("input_discordOnlyDanger").checked;
                     const autoSimulatorEnabled = document.getElementById("input_autoSimulatorEnabled").checked;
+                    
+                    // Save settings
                     handleUpdateSettings({
                       officeStartTime,
                       officeEndTime,
@@ -937,6 +1000,30 @@ export default function App() {
                       discordOnlyDanger,
                       autoSimulatorEnabled
                     });
+
+                    // Save custom administrators list
+                    const user1_name = document.getElementById("input_user1_name").value || "Nafisa Rahman";
+                    const user1_phone = document.getElementById("input_user1_phone").value || "+8801812345678";
+                    const user2_name = document.getElementById("input_user2_name").value || "Tanvir Hossain";
+                    const user2_phone = document.getElementById("input_user2_phone").value || "+8801912345678";
+
+                    const updatedUsers = [
+                      { name: user1_name, email: users[0]?.email || "nafisa.rahman@yahoo.com", phone: user1_phone },
+                      { name: user2_name, email: users[1]?.email || "tanvir.hossain@yahoo.com", phone: user2_phone }
+                    ];
+
+                    fetch(`${backendUrl}/api/users`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ users: updatedUsers })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                      if (data.success) {
+                        setUsers(data.users);
+                      }
+                    })
+                    .catch(err => console.error("Error saving updated users:", err));
                   }}
                   className="px-4 py-2 rounded-lg bg-[#3B82F6] hover:bg-[#2563EB] text-white transition-colors text-xs font-bold shadow-[0_0_15px_rgba(59,130,246,0.4)]"
                 >
