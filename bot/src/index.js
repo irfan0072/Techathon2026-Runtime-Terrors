@@ -97,6 +97,53 @@ If the alert is about a room having all fans and lights ON simultaneously (vacan
   return alertMessage;
 }
 
+// Helper to parse conversational control intents from the boss using Gemini
+async function parseControlIntent(userMessage) {
+  if (!GEMINI_API_KEY) return null;
+
+  try {
+    const prompt = `Analyze this message from the office boss: "${userMessage}".
+Determine if the boss wants to turn ON or OFF any lights or fans in the office.
+If yes, return a JSON array containing the control actions. If no control action is requested, return null.
+
+Valid rooms: "Drawing Room", "Work Room 1", "Work Room 2" (map inputs like "room 1" to "Work Room 1", "room 2" to "Work Room 2", "drawing" to "Drawing Room")
+Valid device types: "fan", "light"
+Device Index: 1, 2, or 3 (for lights), 1 or 2 (for fans)
+Action: "ON" or "OFF"
+
+Respond ONLY with a valid JSON array or the word "null" (do not include markdown wrapping, code blocks, or extra notes).
+
+Examples:
+Input: "turn on drawing room light 2 and fan 1"
+Output: [{"room": "Drawing Room", "type": "light", "index": 2, "action": "ON"}, {"room": "Drawing Room", "type": "fan", "index": 1, "action": "ON"}]
+
+Input: "turn off light 2 in work room 2"
+Output: [{"room": "Work Room 2", "type": "light", "index": 2, "action": "OFF"}]
+
+Input: "status of drawing room"
+Output: null`;
+
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        contents: [{
+          parts: [{ text: prompt }]
+        }]
+      },
+      { timeout: 5000 }
+    );
+
+    const resultText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (resultText && resultText !== "null") {
+      const cleanJson = resultText.replace(/```json/g, "").replace(/```/g, "").trim();
+      return JSON.parse(cleanJson);
+    }
+  } catch (err) {
+    console.error("[Intent Parser] Error:", err.message);
+  }
+  return null;
+}
+
 // Generate the 5-button shortcut menu row
 function getShortcutButtons() {
   const row = new ActionRowBuilder().addComponents(
@@ -273,7 +320,79 @@ client.on("messageCreate", async (message) => {
     // If the boss sends a random conversational text, we can use Gemini to converse with them back!
     if (GEMINI_API_KEY) {
       try {
-        // Fetch all live state
+        // 1. Analyze if there is a conversational device control intent
+        const actions = await parseControlIntent(message.content);
+        
+        if (actions && Array.isArray(actions) && actions.length > 0) {
+          // Fetch current state
+          const devicesRes = await axios.get(`${BACKEND_URL}/api/devices`);
+          const devices = devicesRes.data.devices;
+          
+          let actionResultText = "";
+          let targetRoomsToSummarize = new Set();
+          
+          for (const act of actions) {
+            const roomDevices = devices.filter(d => d.room.toLowerCase() === act.room.toLowerCase());
+            const targetDevice = roomDevices.find(d => 
+              d.type.toLowerCase() === act.type.toLowerCase() && 
+              d.name.toLowerCase().includes(act.index.toString())
+            );
+            
+            if (targetDevice) {
+              const targetStatus = act.action === "ON";
+              if (targetDevice.status !== targetStatus) {
+                // Perform toggle on backend REST API
+                await axios.post(`${BACKEND_URL}/api/devices/${targetDevice.id}/toggle`);
+                targetRoomsToSummarize.add(targetDevice.room);
+                actionResultText += `\n• Set [${targetDevice.room}] ${targetDevice.name} to ${act.action}`;
+              } else {
+                actionResultText += `\n• [${targetDevice.room}] ${targetDevice.name} was already ${act.action}`;
+              }
+            }
+          }
+          
+          if (targetRoomsToSummarize.size > 0) {
+            // Fetch updated device state for real-time status reporting
+            const updatedRes = await axios.get(`${BACKEND_URL}/api/devices`);
+            const updatedDevices = updatedRes.data.devices;
+            
+            let roomsSummary = "";
+            for (const room of targetRoomsToSummarize) {
+              const roomDevices = updatedDevices.filter(d => d.room === room);
+              roomsSummary += `\n\n**${room} Devices Status**:`;
+              roomDevices.forEach(d => {
+                roomsSummary += `\n  • ${d.name}: ${d.status ? "🟢 ON" : "⚫ OFF"} (${d.powerDraw}W)`;
+              });
+            }
+            
+            const aiPrompt = `You are the Smart Office Monitoring Assistant bot. The office boss just requested these device overrides: "${message.content}".
+We executed the following changes successfully:
+${actionResultText}
+
+Here is the live updated room status:
+${roomsSummary}
+
+Write a natural, polite, and friendly conversational response to the boss confirming the actions we performed. Provide the room status summary so they can verify the changes in real-time. Keep it friendly and concise!`;
+
+            const aiResponse = await axios.post(
+              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+              {
+                contents: [{
+                  parts: [{ text: aiPrompt }]
+                }]
+              },
+              { timeout: 8000 }
+            );
+            
+            const replyText = aiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (replyText) {
+              await message.reply({ content: replyText.trim(), components: getShortcutButtons() });
+              return;
+            }
+          }
+        }
+
+        // 2. Otherwise, treat as regular status check/conversation query
         const devicesRes = await axios.get(`${BACKEND_URL}/api/devices`);
         const usageRes = await axios.get(`${BACKEND_URL}/api/usage`);
         const settingsRes = await axios.get(`${BACKEND_URL}/api/settings`);
