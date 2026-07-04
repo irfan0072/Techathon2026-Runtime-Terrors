@@ -79,12 +79,33 @@ function startSimulator(io) {
   return simulatorInterval;
 }
 
+// Helper to get Dhaka time components (GMT+6) to match the user's timezone exactly
+function getDhakaTime() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Dhaka",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false
+  });
+  const parts = formatter.formatToParts(now);
+  const hour = parseInt(parts.find(p => p.type === 'hour').value, 10);
+  const min = parseInt(parts.find(p => p.type === 'minute').value, 10);
+  
+  const timeString = now.toLocaleTimeString("en-US", {
+    timeZone: "Asia/Dhaka",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+  return { hour, min, timeString };
+}
+
 // Check for alerts based on problem statement rules
 function checkAlerts(io, updatedDevice) {
   const settings = store.getSettings();
-  const now = new Date();
-  const currentHour = now.getHours();
-  const currentMin = now.getMinutes();
+  const { hour: currentHour, min: currentMin, timeString } = getDhakaTime();
   const currentTimeVal = currentHour * 60 + currentMin;
 
   const [startH, startM] = (settings.officeStartTime || "09:00").split(":").map(Number);
@@ -97,10 +118,19 @@ function checkAlerts(io, updatedDevice) {
   const isAfterHours = currentTimeVal < startTimeVal || currentTimeVal >= endTimeVal;
   if (isAfterHours && updatedDevice.status === true) {
     const admin = store.dummyUsers[0]; // Nafisa Rahman
-    const msg = `[After Hours Alert] ${updatedDevice.room} - ${updatedDevice.name} was turned ON at ${now.toLocaleTimeString()}. Dispatching alert to Admin ${admin.name} (${admin.phone}).`;
+    const msg = `[After Hours Alert] ${updatedDevice.room} - ${updatedDevice.name} was turned ON at ${timeString}. Dispatching alert to Admin ${admin.name} (${admin.phone}).`;
     
-    const alert = store.addAlert(msg, "warning");
-    io.emit("alert_added", alert);
+    // Check if alert already exists to prevent spam
+    const existing = store.getAlerts();
+    const hasRecent = existing.some(
+      a => a.message.includes(`${updatedDevice.room} - ${updatedDevice.name}`) && 
+      (Date.now() - new Date(a.timestamp).getTime() < 30000)
+    );
+
+    if (!hasRecent) {
+      const alert = store.addAlert(msg, "warning");
+      io.emit("alert_added", alert);
+    }
   }
 
   // Alert Rule 2: A room where all devices are on
