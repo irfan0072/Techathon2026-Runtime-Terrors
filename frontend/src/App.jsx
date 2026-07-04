@@ -178,6 +178,11 @@ export default function App() {
       setAlerts([]);
     });
 
+    // Force synchronization of alerts lists across tabs
+    socketInstance.on('alert_list_sync', (syncedAlerts) => {
+      setAlerts(syncedAlerts);
+    });
+
     // Fetch initial dummy users list
     fetch(`${backendUrl}/api/users`)
       .then(res => res.json())
@@ -938,7 +943,7 @@ export default function App() {
 // Custom SVG Area Chart Component for Time-Series Load Analysis
 function LoadAnalysisChart({ devices, totalPower }) {
   const [filterSource, setFilterSource] = useState('overall'); // 'overall', 'drawing', 'work1', 'work2', 'fans', 'lights'
-  const [limitPoints, setLimitPoints] = useState(15);
+  const [viewMode, setViewMode] = useState('live-15'); // 'live-10', 'live-15', 'live-25', 'live-50', '24h'
   
   // History logs state
   const [history, setHistory] = useState(() => {
@@ -1011,8 +1016,45 @@ function LoadAnalysisChart({ devices, totalPower }) {
     });
   }, [devices, totalPower]);
 
-  // Slice history based on user selection
-  const activeData = history.slice(-limitPoints);
+  // Generate 24 hours report data dynamically
+  const get24HourData = () => {
+    const data = [];
+    const now = new Date();
+    for (let i = 23; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 3600000);
+      const hour = d.getHours();
+      const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+      
+      // Office hours check (9 AM to 5 PM)
+      const isOffice = hour >= 9 && hour < 17;
+      let baseOverall = 0;
+      if (isOffice) {
+        // Peak load during office hours: 140W to 320W
+        baseOverall = 140 + Math.floor(Math.sin((hour - 9) / 8 * Math.PI) * 150) + (i % 3) * 15;
+      } else {
+        // Low load: 20W to 50W
+        baseOverall = 20 + (i % 4) * 10;
+      }
+
+      data.push({
+        time: timeStr,
+        overall: baseOverall,
+        drawing: Math.floor(baseOverall * 0.2),
+        work1: Math.floor(baseOverall * 0.4),
+        work2: Math.floor(baseOverall * 0.4),
+        fans: Math.floor(baseOverall * 0.65),
+        lights: Math.floor(baseOverall * 0.35)
+      });
+    }
+    return data;
+  };
+
+  // Slice history based on user selection or use 24h dynamic report
+  const is24h = viewMode === '24h';
+  const activeData = is24h ? get24HourData() : (() => {
+    const limit = parseInt(viewMode.split('-')[1], 10) || 15;
+    return history.slice(-limit);
+  })();
 
   // Extract selected field based on filterSource
   const values = activeData.map(d => d[filterSource]);
@@ -1086,16 +1128,17 @@ function LoadAnalysisChart({ devices, totalPower }) {
             <option value="lights">Lights Only</option>
           </select>
 
-          {/* Points Limiter */}
+          {/* Time Range Selector */}
           <select
-            value={limitPoints}
-            onChange={(e) => setLimitPoints(parseInt(e.target.value, 10))}
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value)}
             className="bg-slate-900 border border-[#23354E] rounded-lg px-2.5 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-[#3B82F6]"
           >
-            <option value={10}>Last 10 updates</option>
-            <option value={15}>Last 15 updates</option>
-            <option value={25}>Last 25 updates</option>
-            <option value={50}>Last 50 updates</option>
+            <option value="live-10">Live: Last 10 updates</option>
+            <option value="live-15">Live: Last 15 updates</option>
+            <option value="live-25">Live: Last 25 updates</option>
+            <option value="live-50">Live: Last 50 updates</option>
+            <option value="24h">Analysis: Last 24 Hours</option>
           </select>
         </div>
       </div>
@@ -1211,7 +1254,7 @@ function LoadAnalysisChart({ devices, totalPower }) {
                       fill="#64748B"
                       className="text-[8px] font-mono"
                     >
-                      {p.time.slice(-8)}
+                      {p.time}
                     </text>
                   </g>
                 )}

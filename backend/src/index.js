@@ -87,6 +87,7 @@ app.get("/api/users", (req, res) => {
 app.post("/api/alerts/clear", (req, res) => {
   store.clearAlerts();
   io.emit("alerts_cleared");
+  io.emit("alert_list_sync", []);
   res.json({ success: true, message: "Alerts cleared successfully" });
 });
 
@@ -152,6 +153,7 @@ io.on("connection", (socket) => {
   socket.on("clear_alerts", () => {
     store.clearAlerts();
     io.emit("alerts_cleared");
+    io.emit("alert_list_sync", []);
   });
 
   // Handle request to update settings via sockets

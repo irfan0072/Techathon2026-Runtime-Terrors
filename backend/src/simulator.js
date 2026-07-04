@@ -41,6 +41,10 @@ function startSimulator(io) {
 
   // Run vacancy & after-hours background checks every 5 seconds
   setInterval(() => {
+    // Cooldown check: if alerts were recently cleared, wait at least 20 seconds before adding new alerts
+    if (Date.now() - store.getLastClearedTime() < 20000) {
+      return;
+    }
     const settings = store.getSettings();
     const now = Date.now();
     const { hour: currentHour, min: currentMin, timeString } = getDhakaTime();
@@ -135,6 +139,10 @@ function getDhakaTime() {
 
 // Check for alerts based on problem statement rules
 function checkAlerts(io, updatedDevice) {
+  // Cooldown check: if alerts were recently cleared, wait at least 20 seconds before adding new alerts
+  if (Date.now() - store.getLastClearedTime() < 20000) {
+    return;
+  }
   const settings = store.getSettings();
   const { hour: currentHour, min: currentMin, timeString } = getDhakaTime();
   const currentTimeVal = currentHour * 60 + currentMin;

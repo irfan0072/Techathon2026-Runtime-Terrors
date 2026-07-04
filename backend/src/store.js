@@ -112,8 +112,12 @@ const getEstimatedKWh = () => {
 
 const getAlerts = () => alerts;
 
+let lastClearedTime = 0;
+const getLastClearedTime = () => lastClearedTime;
+
 const clearAlerts = () => {
   alerts.length = 0;
+  lastClearedTime = Date.now();
 };
 
 const addAlert = (message, severity = "warning") => {
@@ -157,6 +161,7 @@ module.exports = {
   getEstimatedKWh,
   getAlerts,
   clearAlerts,
+  getLastClearedTime,
   addAlert,
   getSettings,
   updateSettings,
