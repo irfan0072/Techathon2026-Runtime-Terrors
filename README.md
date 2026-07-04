@@ -23,6 +23,15 @@ Welcome to the codebase for the **Smart Office Power and Device Monitoring Syste
 
 ---
 
+## 📖 Project Documentation
+
+For in-depth explanations of the system design, hardware schematics, and codebase models, refer to the following guides:
+* **[System Diagram & Data Flows](docs/system_diagram.md)**: Visual architecture flow charts and information mappings.
+* **[Circuit Wiring Schematic](docs/circuit_schematic.md)**: Physical Arduino pins, relay boards, slide switch overrides, and safety transistor driver schematics.
+* **[Software Architecture & Schemas](docs/architecture.md)**: Codebase modules, Express REST API routes, and in-memory store models.
+
+---
+
 ## 📦 Monorepo Folder Structure
 
 ```text
