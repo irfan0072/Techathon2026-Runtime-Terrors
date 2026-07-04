@@ -8,6 +8,7 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN || "PLACEHOLDER_TOKEN";
 const BACKEND_URL = process.env.BACKEND_URL || "https://teckathon-backend.onrender.com";
 const ALERTS_CHANNEL_ID = process.env.ALERTS_CHANNEL_ID || "PLACEHOLDER_CHANNEL_ID";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 const PREFIX = "!";
 
 // Initialize Discord Client
@@ -19,16 +20,71 @@ const client = new Client({
   ]
 });
 
-// Helper to query Gemini 2.5 Flash and humanize responses
-async function humanizeResponse(systemContext, rawDataText) {
-  if (!GEMINI_API_KEY) {
-    // Fallback friendly formatting
-    return `👋 **SmartOffice Update**\n${systemContext}\n\n${rawDataText}`;
+// Centralized LLM Query helper with automatic failover (Gemini -> OpenRouter Free Llama)
+async function queryLLM(promptText, systemInstruction = "") {
+  // 1. Try Google Gemini Flash 2.5
+  if (GEMINI_API_KEY) {
+    try {
+      const fullPrompt = systemInstruction ? `${systemInstruction}\n\n${promptText}` : promptText;
+      const response = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          contents: [{
+            parts: [{ text: fullPrompt }]
+          }]
+        },
+        { timeout: 6000 }
+      );
+      const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        return text.trim();
+      }
+    } catch (err) {
+      console.warn(`[Gemini API Warning] Failed or Rate Limited. Attempting failover to OpenRouter... (Error: ${err.message})`);
+    }
   }
 
-  try {
-    const prompt = `You are a helpful, extremely polite, and professional Smart Office monitoring assistant. 
-Explain the following status details to the office manager/boss in a natural, friendly, human conversational tone.
+  // 2. Failover to OpenRouter (Free Llama 3.1 8B Model)
+  if (OPENROUTER_API_KEY) {
+    try {
+      const messages = [];
+      if (systemInstruction) {
+        messages.push({ role: "system", content: systemInstruction });
+      }
+      messages.push({ role: "user", content: promptText });
+
+      const response = await axios.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+          model: "meta-llama/llama-3.1-8b-instruct:free",
+          messages: messages
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          timeout: 7000
+        }
+      );
+
+      const text = response.data?.choices?.[0]?.message?.content;
+      if (text) {
+        console.log("[OpenRouter API Fallback] Successfully resolved response via Free Llama 3.1.");
+        return text.trim();
+      }
+    } catch (err) {
+      console.error(`[OpenRouter API Error] Fallover backup failed: ${err.message}`);
+    }
+  }
+
+  return null; // Both failed or unconfigured
+}
+
+// Helper to query LLM and humanize status response outputs
+async function humanizeResponse(systemContext, rawDataText) {
+  const systemInstruction = `You are a helpful, extremely polite, and professional Smart Office monitoring assistant.`;
+  const prompt = `Explain the following status details to the office manager/boss in a natural, friendly, human conversational tone.
 Do not reference prompt structures, raw arrays, or template instructions.
 You can write in English, Bengali, or Banglish depending on how you are addressed. Keep it concise, tidy, and accurate.
 
@@ -36,73 +92,32 @@ Context: ${systemContext}
 Status Details:
 ${rawDataText}`;
 
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        contents: [{
-          parts: [{ text: prompt }]
-        }]
-      },
-      { timeout: 5000 }
-    );
+  const text = await queryLLM(prompt, systemInstruction);
+  if (text) return text;
 
-    const candidateText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (candidateText) {
-      return candidateText.trim();
-    }
-  } catch (err) {
-    console.error("[Gemini] API error, using friendly fallback:", err.message);
-  }
-
+  // Fallback friendly formatting
   return `👋 **SmartOffice Update**\n${systemContext}\n\n${rawDataText}`;
 }
 
-// Helper to query Gemini 2.5 Flash and rephrase proactive warnings/alerts conversationally
+// Helper to query LLM and rephrase proactive warnings/alerts conversationally
 async function humanizeAlert(alertMessage, severity) {
-  if (!GEMINI_API_KEY) {
-    return alertMessage; // Fallback to raw message if key is missing
-  }
-
-  try {
-    const prompt = `You are a friendly, concerned, and casual office assistant. 
-The system detected an efficiency or after-hours alert and sent this raw notification:
-"${alertMessage}"
-
-Rephrase this raw alert into a highly conversational, casual, friendly, and natural warning message for the Discord channel.
-Use emojis where appropriate (like ⚠️, 🔔, 💡). Keep it short, direct, and conversational—the boss hates dry, robotic data dumps.
+  const systemInstruction = `You are a friendly, concerned, and casual office assistant.`;
+  const prompt = `The office environment rules or safety parameters detected an alert: "${alertMessage}".
+Rephrase this dry sensor event into a highly conversational, casual, friendly, and natural warning message for the Discord channel.
+Use emojis where appropriate (like ⚠️, 🔔, 💡). Keep it short, direct, and conversational.
 Make it sound exactly like a real human warning their teammates (for example: "⚠️ Hey! Work Room 2 still has 2 fans and 3 lights ON and it's 10 PM. Did someone forget to leave?").
-Do NOT output any prefix (like "Here is the rephrased message:", "Rephrased:", "Warning:"). Output ONLY the rephrased message itself.
+Do NOT output any prefix or metadata. Output ONLY the rephrased message.`;
 
-If the alert is about devices left ON outside office hours, state that they are running after hours in a casual, conversational way.
-If the alert is about a room having all fans and lights ON simultaneously (vacancy warning), mention how long they've been running and suggest checking for vacancy.`;
-
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        contents: [{
-          parts: [{ text: prompt }]
-        }]
-      },
-      { timeout: 6000 }
-    );
-
-    const candidateText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (candidateText) {
-      return candidateText.trim();
-    }
-  } catch (err) {
-    console.error("[Gemini Alert Humanizer] Error, using raw:", err.message);
-  }
+  const text = await queryLLM(prompt, systemInstruction);
+  if (text) return text;
 
   return alertMessage;
 }
 
-// Helper to parse conversational control intents from the boss using Gemini
+// Helper to parse conversational control intents from the boss using Gemini or Llama
 async function parseControlIntent(userMessage) {
-  if (!GEMINI_API_KEY) return null;
-
-  try {
-    const prompt = `Analyze this message from the office boss: "${userMessage}".
+  const systemInstruction = `You are a device control intent parser. Respond ONLY with a valid JSON array or the word "null" (do not include markdown wrapping, code blocks, or extra notes).`;
+  const prompt = `Analyze this message from the office boss: "${userMessage}".
 Determine if the boss wants to turn ON or OFF any lights or fans in the office.
 If yes, return a JSON array containing the control actions. If no control action is requested, return null.
 
@@ -110,8 +125,6 @@ Valid rooms: "Drawing Room", "Work Room 1", "Work Room 2" (map inputs like "room
 Valid device types: "fan", "light"
 Device Index: 1, 2, or 3 (for lights), 1 or 2 (for fans)
 Action: "ON" or "OFF"
-
-Respond ONLY with a valid JSON array or the word "null" (do not include markdown wrapping, code blocks, or extra notes).
 
 Examples:
 Input: "turn on drawing room light 2 and fan 1"
@@ -123,23 +136,14 @@ Output: [{"room": "Work Room 2", "type": "light", "index": 2, "action": "OFF"}]
 Input: "status of drawing room"
 Output: null`;
 
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        contents: [{
-          parts: [{ text: prompt }]
-        }]
-      },
-      { timeout: 5000 }
-    );
-
-    const resultText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    if (resultText && resultText !== "null") {
-      const cleanJson = resultText.replace(/```json/g, "").replace(/```/g, "").trim();
+  const text = await queryLLM(prompt, systemInstruction);
+  if (text && text !== "null") {
+    try {
+      const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
       return JSON.parse(cleanJson);
+    } catch (err) {
+      console.error("[parseControlIntent] JSON parse error:", err.message, "Raw Text:", text);
     }
-  } catch (err) {
-    console.error("[Intent Parser] Error:", err.message);
   }
   return null;
 }
@@ -442,20 +446,10 @@ Instructions:
 3. Be friendly and conversational—the boss hates dry, robotic data dumps.
 4. Mention that they can also click the quick buttons below to get instant structured status reports.`;
 
-        // Send this directly to Gemini!
-        const response = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-          {
-            contents: [{
-              parts: [{ text: prompt }]
-            }]
-          },
-          { timeout: 8000 }
-        );
-
-        const candidateText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (candidateText) {
-          await message.reply({ content: candidateText.trim(), components: getShortcutButtons() });
+        // Send this directly to centralized LLM wrapper with automatic failover!
+        const replyText = await queryLLM(prompt);
+        if (replyText) {
+          await message.reply({ content: replyText, components: getShortcutButtons() });
           return;
         }
       } catch (err) {
