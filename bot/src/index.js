@@ -57,6 +57,46 @@ ${rawDataText}`;
   return `👋 **SmartOffice Update**\n${systemContext}\n\n${rawDataText}`;
 }
 
+// Helper to query Gemini 2.5 Flash and rephrase proactive warnings/alerts conversationally
+async function humanizeAlert(alertMessage, severity) {
+  if (!GEMINI_API_KEY) {
+    return alertMessage; // Fallback to raw message if key is missing
+  }
+
+  try {
+    const prompt = `You are a friendly, concerned, and casual office assistant. 
+The system detected an efficiency or after-hours alert and sent this raw notification:
+"${alertMessage}"
+
+Rephrase this raw alert into a highly conversational, casual, friendly, and natural warning message for the Discord channel.
+Use emojis where appropriate (like ⚠️, 🔔, 💡). Keep it short, direct, and conversational—the boss hates dry, robotic data dumps.
+Make it sound exactly like a real human warning their teammates (for example: "⚠️ Hey! Work Room 2 still has 2 fans and 3 lights ON and it's 10 PM. Did someone forget to leave?").
+Do NOT output any prefix (like "Here is the rephrased message:", "Rephrased:", "Warning:"). Output ONLY the rephrased message itself.
+
+If the alert is about devices left ON outside office hours, state that they are running after hours in a casual, conversational way.
+If the alert is about a room having all fans and lights ON simultaneously (vacancy warning), mention how long they've been running and suggest checking for vacancy.`;
+
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        contents: [{
+          parts: [{ text: prompt }]
+        }]
+      },
+      { timeout: 6000 }
+    );
+
+    const candidateText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (candidateText) {
+      return candidateText.trim();
+    }
+  } catch (err) {
+    console.error("[Gemini Alert Humanizer] Error, using raw:", err.message);
+  }
+
+  return alertMessage;
+}
+
 // Generate the 5-button shortcut menu row
 function getShortcutButtons() {
   const row = new ActionRowBuilder().addComponents(
@@ -124,8 +164,8 @@ function connectToBackendSockets() {
       try {
         const channel = await client.channels.fetch(ALERTS_CHANNEL_ID);
         if (channel && channel.isTextBased()) {
-          // Humanize proactive alert details
-          const friendlyAlert = await humanizeResponse("Proactive anomaly warning alert.", alert.message);
+          // Humanize proactive alert details conversationally
+          const friendlyAlert = await humanizeAlert(alert.message, alert.severity);
 
           const alertEmbed = new EmbedBuilder()
             .setTitle(alert.severity === 'danger' ? "⚠️ CRITICAL EFFICIENCY WARNING" : "🔔 SYSTEM ALERT")
@@ -252,18 +292,19 @@ All Devices ON time limit: ${settings.roomAllOnTimeLimit || "02:00"}
 `;
 
         const prompt = `You are the Smart Office Monitoring Assistant bot. The office manager/boss just sent this message: "${message.content}".
-Answer their message in a natural, polite, and professional conversational tone, using the live office data provided below.
+Answer their message in a highly conversational, casual, friendly, and natural tone, using the live office data provided below.
 Be concise, clear, and extremely accurate. Do not hallucinate devices or features that do not exist in the data.
 You can respond in English, Bengali, or Banglish depending on how the boss addresses you.
+IMPORTANT: Speak directly to the boss. Do NOT echo back the instructions, prompt templates, or system variables. Output ONLY the response text.
 
 Live System Data:
 ${systemStateText}
 
 Instructions:
-1. Directly answer the boss's query. If they ask about a specific room (e.g. "room 1", "drawing room", or "room number 1"), look at the devices list for that room and summarize it.
+1. Directly answer the boss's query. If they ask about a specific room (e.g. "room 1", "drawing room", or "room number 1"), summarize the status of its lights and fans.
 2. If they speak in Bengali or Banglish (e.g., "room 1 er status ki?"), reply back in friendly Bengali or Banglish.
-3. Be concise, clear, and professional.
-4. Note that they can also click the quick buttons below to get instant structured status reports.`;
+3. Be friendly and conversational—the boss hates dry, robotic data dumps.
+4. Mention that they can also click the quick buttons below to get instant structured status reports.`;
 
         // Send this directly to Gemini!
         const response = await axios.post(
