@@ -2,10 +2,17 @@
 // Managing 15 devices total (2 fans, 3 lights per room across 3 rooms)
 
 // STRICT PROBLEM STATEMENT REQUIREMENT: Only this dummy dataset must be used for any user-related values
-const dummyUsers = [
+let dummyUsers = [
   { name: "Nafisa Rahman", email: "nafisa.rahman@yahoo.com", phone: "+8801812345678" },
   { name: "Tanvir Hossain", email: "tanvir.hossain@yahoo.com", phone: "+8801912345678" }
 ];
+
+const updateUsers = (newUsers) => {
+  if (Array.isArray(newUsers)) {
+    dummyUsers = newUsers;
+  }
+  return dummyUsers;
+};
 
 // Initialize devices state
 const devices = [
@@ -152,7 +159,8 @@ const updateSettings = (newSettings) => {
 };
 
 module.exports = {
-  dummyUsers,
+  get dummyUsers() { return dummyUsers; },
+  updateUsers,
   getDevices,
   getDeviceById,
   updateDeviceStatus,

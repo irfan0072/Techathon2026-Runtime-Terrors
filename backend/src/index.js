@@ -75,12 +75,19 @@ app.get("/api/alerts", (req, res) => {
   });
 });
 
-// Get dummy users dataset (strictly Nafisa Rahman and Tanvir Hossain)
+// Get all users
 app.get("/api/users", (req, res) => {
   res.json({
     success: true,
     users: store.dummyUsers
   });
+});
+
+// Update users dynamically
+app.post("/api/users", (req, res) => {
+  const updated = store.updateUsers(req.body.users);
+  io.emit("users_updated", updated);
+  res.json({ success: true, users: updated });
 });
 
 // Clear all alerts
