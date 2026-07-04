@@ -789,7 +789,10 @@ export default function App() {
         const [durationHours, durationMinutes] = (settings.roomAllOnTimeLimit || "02:00").split(":").map(Number);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-            <div className="bg-[#161F30] border border-[#23354E] rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.8)]">
+            <div 
+              className="bg-[#161F30] border border-[#23354E] rounded-2xl w-full max-w-md flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
+              style={{ maxHeight: "calc(100vh - 40px)" }}
+            >
               {/* Header */}
               <div className="px-6 py-4 border-b border-[#23354E]/60 flex justify-between items-center bg-slate-900/50">
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -804,7 +807,10 @@ export default function App() {
               </div>
 
               {/* Content */}
-              <div className="p-6 space-y-5 text-sm text-gray-300 overflow-y-auto flex-1 custom-scrollbar">
+              <div 
+                className="p-6 space-y-5 text-sm text-gray-300 overflow-y-auto custom-scrollbar"
+                style={{ flex: "1 1 auto", minHeight: 0 }}
+              >
                 {/* Rule 1: Office Hours */}
                 <div className="space-y-2">
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-400">Office Hours Schedule</label>
