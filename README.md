@@ -80,18 +80,38 @@ teckathon/
 
 ---
 
+## Technology Stack & Dependencies
+
+| Component | Main dependencies |
+| --- | --- |
+| Dashboard | React 18, React DOM, Socket.IO Client, Lucide React |
+| API and simulator | Node.js, Express 4, Socket.IO, CORS, dotenv |
+| Discord assistant | discord.js 14, Axios, Socket.IO Client, dotenv |
+| Development | Vite 5, Tailwind CSS 3, PostCSS, Autoprefixer, Nodemon, Concurrently |
+
+Dependency versions are defined in the root and each workspace's `package.json`. The project uses npm workspaces to install the frontend, backend and bot together.
+
+---
+
 ## 🛠️ Setup & Local Installation
 
 ### Prerequisites
-Make sure you have [Node.js (v18+)](https://nodejs.org/) and `npm` installed.
+Use [Node.js 20 or newer](https://nodejs.org/) and npm. The optional Discord bot needs your own Discord token and configured AI provider key.
 
-### 1. Install Workspace Dependencies
+### 1. Clone the Project
+
+```bash
+git clone https://github.com/irfan0072/Techathon2026-Runtime-Terrors.git
+cd Techathon2026-Runtime-Terrors
+```
+
+### 2. Install Workspace Dependencies
 From the monorepo root directory, run the following to install dependencies for all workspaces concurrently:
 ```bash
 npm install
 ```
 
-### 2. Configure Environment Variables
+### 3. Configure Environment Variables
 Create a `.env` file in the `bot/` directory:
 ```env
 DISCORD_TOKEN=your_discord_bot_token
@@ -99,22 +119,31 @@ ALERTS_CHANNEL_ID=your_discord_alerts_channel_id
 GEMINI_API_KEY=your_google_gemini_api_key
 ```
 
-### 3. Run the Monorepo Concurrently
+### 4. Run the Monorepo Concurrently
 Start the Express Backend, React Frontend, and Discord Bot all at once:
 ```bash
 npm run dev
 ```
 
-### 4. Direct Command Proxies
+### 5. Run Without the Discord Bot
+
+To explore the dashboard without Discord credentials, run these commands in separate terminals:
+
+```bash
+npm run backend
+```
+
+```bash
+npm run frontend
+```
+
+Open **http://localhost:5173**. The API and WebSocket service run on **http://localhost:3001**.
+
+### 6. Direct Command Proxies
 Alternatively, run individual services from the root:
 * **Backend API**: `npm run backend` (Ports: `3001` REST/WebSocket)
 * **Vite Dashboard**: `npm run frontend` (Port: `5173` Local Web)
 * **Discord Bot client**: `npm run bot`
-
----
-
-## 🎬 Video Demonstration
-* **Project Walkthrough Video (3 Min Max)**: [Watch our Live Demo on YouTube](https://youtu.be/your_placeholder_link) *(Ensure this is updated before submission)*
 
 ---
 
